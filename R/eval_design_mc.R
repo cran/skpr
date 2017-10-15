@@ -3,15 +3,15 @@
 #'@description Evaluates the power of an experimental design, given its run matrix and the
 #'statistical model to be fit to the data, using monte carlo simulation. Simulated data is fit using a
 #'generalized linear model
-#'and power is estimated by the fraction of times a parameter is significant. Returns
-#'a data frame of parameter powers.
+#'and power is estimated by the fraction of times a parameter is significant.
+#'Returns a data frame of parameter powers.
 #'
 #'@param RunMatrix The run matrix of the design. Internally, \code{eval_design_mc} rescales each numeric column
 #'to the range [-1, 1].
 #'@param model The model used in evaluating the design. It can be a subset of the model used to
 #'generate the design, or include higher order effects not in the original design generation. It cannot include
 #'factors that are not present in the run matrix.
-#'@param alpha The type-I error.
+#'@param alpha The type-I error. p-values less than this will be counted as significant.
 #'@param blocking If TRUE, \code{eval_design_mc} will look at the rownames to determine blocking structure. Default FALSE.
 #'@param nsim The number of simulations to perform.
 #'@param glmfamily String indicating the family of distribution for the glm function
@@ -19,43 +19,40 @@
 #'@param varianceratios Default 1. The ratio of the whole plot variance to the run-to-run variance. For designs with more than one subplot
 #'this ratio can be a vector specifying the variance ratio for each subplot. Otherwise, it will use a single value for all strata.
 #'@param rfunction Random number generator function for the response variable. Should be a function of the form f(X, b, delta), where X is the
-#'model matrix, b are the anticipated coefficients, and delta is a vector of blocking errors. Typically something like rnorm(nrow(X), X * b + delta, 0).
+#'model matrix, b are the anticipated coefficients, and delta is a vector of blocking errors. Typically something like rnorm(nrow(X), X * b + delta, 1).
 #'You only need to specify this if you do not like the default behavior described below.
 #'@param anticoef The anticipated coefficients for calculating the power. If missing, coefficients
-#'will be automatically generated based on the \code{delta} or \code{binomialprobs} arguments.
-#'@param delta Loosely speaking, the signal-to-noise ratio. Default 2. For a gaussian model, and for
-#'continuous factors, this specifies the difference in response between the highest
-#'and lowest levels of a factor (which are +1 and -1 after normalization).
-#'More precisely: If you do not specify \code{anticoef}, the anticipated coefficients will be
-#'half of \code{delta}. If you do specify \code{anticoef}, leave \code{delta} at its default of 2.
-#'@param contrasts The contrasts to use for categorical factors. Defaults to \code{contr.sum}.
-#'@param binomialprobs If the glm family is binomial, user should specify
-#'a length-two vector consisting of the base probability and the maximum expected probability. Note that
-#'this effect size is applied to each parameter, so if you have many parameters the actual shift in probability
-#'across the design space can be much larger than this.
-#'As an example, if the user wants to detect at an
-#' change in success rate from 0.5 to 0.8, the user would pass the vector c(0.5,0.8) to the argument.
-#' If this argument is used, the \code{anticoef} and \code{delta} arguments are ignored.
+#'will be automatically generated based on the \code{effectsize} or \code{binomialprobs} arguments.
+#'@param effectsize Helper argument to generate anticipated coefficients. See details for more info.
+#'If you specify \code{anticoef}, \code{effectsize} will be ignored.
+#'@param contrasts Default \code{contr.sum}. The contrasts to use for categorical factors. If the user has specified their own contrasts
+#'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
+#'@param binomialprobs Equivalent to \code{effectsize}, maintained for backwards compatibility. See details for more info.
+#'If you specify \code{anticoef}, this argument will be ignored.
 #'@param parallel Default FALSE. If TRUE, uses all cores available to speed up computation. WARNING: This can slow down computation if nonparallel time to complete the computation is less than a few seconds.
 #'@param detailedoutput If TRUE, return additional information about evaluation in results.
 #'@param progressBarUpdater Default NULL. Function called in non-parallel simulations that can be used to update external progress bar.
+#'@param delta Deprecated. Use \code{effectsize} instead.
 #'@return A data frame consisting of the parameters and their powers, with supplementary information
 #'stored in the data frame's attributes. The parameter estimates from the simulations are stored in the "estimates"
 #' attribute. The "modelmatrix" attribute contains the model matrix that was used for power evaluation, and
 #' also provides the encoding used for categorical factors. If you want to specify the anticipated
 #' coefficients manually, do so in the order the parameters appear in the model matrix.
 #'@details Evaluates the power of a design with Monte Carlo simulation. Data is simulated and then fit
-#' with a generalized linear model, and the fraction of simulations in which a parameter is
-#'significant is the estimate of power for that parameter.
+#' with a generalized linear model, and the fraction of simulations in which a parameter
+#' is significant
+#'  (its p-value, according to the fit function used, is less than the specified \code{alpha})
+#' is the estimate of power for that parameter.
 #'
-#'First, the random noise from blocking is generated with \code{rnorm}.
-#'Each block gets a single sample of Gaussian random noise, with a variance as specified in \code{varianceratios},
+#'First, if \code{blocking = TURE}, the random noise from blocking is generated with \code{rnorm}.
+#'Each block gets a single sample of Gaussian random noise, with a variance as specified in
+#'\code{varianceratios},
 #'and that sample is copied to each run in the block. Then, \code{rfunction} is called to generate a simulated
 #'response for each run of the design, and the data is fit using the appropriate fitting function.
 #'The functions used to simulate the data and fit it are determined by the \code{glmfamily}
 #'and \code{blocking} arguments
 #'as follows. Below, X is the model matrix, b is the anticipated coefficients, and d
-#'is a vector of blocking noise:
+#'is a vector of blocking noise (if \code{blocking = FALSE} then d = 0):
 #'
 #'\tabular{llrr}{
 #'\bold{glmfamily}      \tab \bold{blocking} \tab \bold{rfunction} \tab \bold{fit} \cr
@@ -68,20 +65,52 @@
 #'"exponential"  \tab F        \tab \code{rexp(rate = exp(-(X \%*\% b + d)))}            \tab \code{glm(family = Gamma(link="log"))} \cr
 #'"exponential"  \tab T        \tab \code{rexp(rate = exp(-(X \%*\% b + d)))}            \tab \code{lme4:glmer(family = Gamma(link="log"))} \cr
 #'}
+#'Note that the exponential random generator uses the "rate" parameter, but \code{skpr} and \code{glm} use
+#'the mean value parameterization (= 1 / rate), hence the minus sign above. Also note that
+#'the gaussian model assumes a root-mean-square error of 1.
+#'
+#'Power is dependent on the anticipated coefficients. You can specify those directly with the \code{anticoef}
+#'argument, or you can use the \code{effectsize} argument to specify an effect size and \code{skpr} will auto-generate them.
+#'You can provide either a length-1 or length-2 vector. If you provide a length-1 vector, the anticipated
+#'coefficients will be half of \code{effectsize}; this is equivalent to saying that the \emph{linear predictor}
+#'(for a gaussian model, the mean response; for a binomial model, the log odds ratio; for an exponential model,
+#'the log of the mean value; for a poisson model, the log of the expected response)
+#'changes by \code{effectsize} when a continuous factor goes from its lowest level to its highest level. If you provide a
+#'length-2 vector, the anticipated coefficients will be set such that the \emph{mean response} (for
+#'a gaussian model, the mean response; for a binomial model, the probability; for an exponential model, the mean
+#'response; for a poisson model, the expected response) changes from
+#'\code{effectsize[1]} to \code{effectsize[2]} when a factor goes from its lowest level to its highest level, assuming
+#'that the other factors are inactive (their x-values are zero).
+#'
+#'The effect of a length-2 \code{effectsize} depends on the \code{glmfamily} argument as follows:
+#'
+#'For \code{glmfamily = 'gaussian'}, the coefficients are set to \code{(effectsize[2] - effectsize[1]) / 2}.
+#'
+#'For \code{glmfamily = 'binomial'}, the intercept will be
+#'\code{1/2 * log(effectsize[1] * effectsize[2] / (1 - effectsize[1]) / (1 - effectsize[2]))},
+#'and the other coefficients will be
+#'\code{1/2 * log(effectsize[2] * (1 - effectsize[1]) / (1 - effectsize[2]) / effectsize[1])}.
+#'
+#'For \code{glmfamily = 'exponential'} or \code{'poisson'},
+#'the intercept will be
+#'\code{1 / 2 * (log(effectsize[2]) + log(effectsize[1]))},
+#'and the other coefficients will be
+#'\code{1 / 2 * (log(effectsize[2]) - log(effectsize[1]))}.
+#'
 #'
 #'@export
 #'@import foreach doParallel nlme stats
 #'@examples #We first generate a full factorial design using expand.grid:
 #'factorialcoffee = expand.grid(cost=c(-1, 1),
-#'                              type=as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
-#'                              size=as.factor(c("Short", "Grande", "Venti")))
+#'                               type=as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
+#'                               size=as.factor(c("Short", "Grande", "Venti")))
 #'
 #'#And then generate the 21-run D-optimal design using gen_design.
 #'
 #'designcoffee = gen_design(factorialcoffee, model=~cost + type + size, trials=21, optimality="D")
 #'
 #'#To evaluate this design using a normal approximation, we just use eval_design
-#'#(here using the default settings for contrasts, delta, and the anticipated coefficients):
+#'#(here using the default settings for contrasts, effectsize, and the anticipated coefficients):
 #'
 #'eval_design(RunMatrix=designcoffee, model=~cost + type + size, 0.05)
 #'
@@ -97,10 +126,10 @@
 #'
 #'#We see here we generate approximately the same parameter powers as we do
 #'#using the normal approximation in eval_design. Like eval_design, we can also change
-#'#delta to produce a different signal-to-noise ratio:
+#'#effectsize to produce a different signal-to-noise ratio:
 #'
 #'\dontrun{eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, alpha=0.05,
-#'               nsim=100, glmfamily="gaussian", delta=1)}
+#'               nsim=100, glmfamily="gaussian", effectsize=1)}
 #'
 #'#Like eval_design, we can also evaluate the design with a different model than
 #'#the one that generated the design.
@@ -112,7 +141,7 @@
 #'\dontrun{eval_design_mc(RunMatrix=designcoffee,model=~cost + type + size + cost*type, 0.05,
 #'               nsim=100, glmfamily="gaussian")}
 #'
-#'#We can also set "parallel=TRUE" to turn use all the cores available to speed up
+#'#We can also set "parallel=TRUE" to use all the cores available to speed up
 #'#computation.
 #'\dontrun{eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, 0.05,
 #'               nsim=10000, glmfamily="gaussian", parallel=TRUE)}
@@ -120,17 +149,17 @@
 #'#We can also evaluate split-plot designs. First, let us generate the split-plot design:
 #'
 #'factorialcoffee2 = expand.grid(Temp = c(1,-1),
-#'                               Store=as.factor(c("A","B")),
-#'                               cost=c(-1, 1),
-#'                               type=as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
-#'                               size=as.factor(c("Short", "Grande", "Venti")))
+#'                                Store=as.factor(c("A","B")),
+#'                                cost=c(-1, 1),
+#'                                type=as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
+#'                                size=as.factor(c("Short", "Grande", "Venti")))
 #'
 #'vhtcdesign = gen_design(candidateset=factorialcoffee2, model=~Store, trials=6, varianceratio=1)
 #'htcdesign = gen_design(candidateset=factorialcoffee2, model=~Store+Temp, trials=18,
-#'                       splitplotdesign=vhtcdesign, splitplotsizes=rep(3,6),varianceratio=1)
+#'                        splitplotdesign=vhtcdesign, splitplotsizes=rep(3,6),varianceratio=1)
 #'splitplotdesign = gen_design(candidateset=factorialcoffee2,
-#'                             model=~Store+Temp+cost+type+size, trials=54,
-#'                             splitplotdesign=htcdesign, splitplotsizes=rep(3,18),varianceratio=1)
+#'                              model=~Store+Temp+cost+type+size, trials=54,
+#'                              splitplotdesign=htcdesign, splitplotsizes=rep(3,18),varianceratio=1)
 #'
 #'#Each block has an additional noise term associated with it in addition to the normal error
 #'#term in the model. This is specified by a vector specifying the additional variance for
@@ -149,7 +178,7 @@
 #'factorialbinom = expand.grid(a=c(-1,1),b=c(-1,1))
 #'designbinom = gen_design(factorialbinom,model=~a+b,trials=90,optimality="D")
 #'
-#'\dontrun{eval_design_mc(designbinom,~a+b,alpha=0.2,nsim=100, binomialprobs = c(0.7, 0.9),
+#'\dontrun{eval_design_mc(designbinom,~a+b,alpha=0.2,nsim=100, effectsize = c(0.7, 0.9),
 #'               glmfamily="binomial")}
 #'
 #'#We can also use this method to determine power for poisson response variables.
@@ -170,13 +199,27 @@
 #'#Note the use of log() in the anticipated coefficients.
 eval_design_mc = function(RunMatrix, model, alpha,
                           blocking=FALSE, nsim=1000, glmfamily="gaussian",
-                          varianceratios = NULL, rfunction=NULL, anticoef=NULL, delta=2,
+                          varianceratios = NULL, rfunction=NULL, anticoef=NULL, effectsize=2,
                           contrasts=contr.sum, binomialprobs = NULL,
-                          parallel=FALSE, detailedoutput=FALSE, progressBarUpdater=NULL ) {
+                          parallel=FALSE, detailedoutput=FALSE, progressBarUpdater=NULL,delta=NULL) {
+
+  if(!missing(delta)) {
+    warning("argument delta deprecated. Use effectsize instead. Setting effectsize = delta.")
+    effectsize=delta
+  }
 
   if(class(RunMatrix) %in% c("tbl","tbl_df") && blocking) {
     warning("Tibbles strip out rownames, which encode blocking information. Use data frames if the design has a split plot structure. Converting input to data frame")
   }
+
+  #detect pre-set contrasts
+  presetcontrasts = list()
+  for(x in names(RunMatrix[lapply(RunMatrix,class) %in% c("character", "factor")])) {
+    if(!is.null(attr(RunMatrix[[x]],"contrasts"))) {
+      presetcontrasts[[x]] = attr(RunMatrix[[x]],"contrasts")
+    }
+  }
+
   #covert tibbles
   RunMatrix = as.data.frame(RunMatrix)
 
@@ -227,6 +270,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
       attributes(RunMatrix) = allattr
     }
   }
+
   #Remove skpr-generated REML blocking indicators if present
   if(!is.null(attr(RunMatrix,"splitanalyzable"))) {
     if(attr(RunMatrix,"splitanalyzable")) {
@@ -245,7 +289,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
       rfunction = function(X,b,blockvector) {return(rnorm(n=nrow(X), mean = X %*% b + blockvector, sd = 1))}
     }
     if(glmfamily == "binomial") {
-      rfunction = function(X,b,blockvector) {return(rbinom(n=nrow(X), size = 1 ,prob = 1/(1+exp(-(X %*% b + blockvector)))))}
+      rfunction = function(X,b,blockvector) {return(rbinom(n=nrow(X), size = 1, prob = 1/(1+exp(-(X %*% b + blockvector)))))}
     }
     if(glmfamily == "poisson") {
       rfunction = function(X,b,blockvector) {return(rpois(n=nrow(X), lambda = exp((X %*% b + blockvector))))}
@@ -271,8 +315,12 @@ eval_design_mc = function(RunMatrix, model, alpha,
 
   contrastslist_correlationmatrix = list()
   contrastslist = list()
-  for(x in names(RunMatrixReduced[lapply(RunMatrixReduced, class) == "factor"])) {
-    contrastslist[[x]] = contrasts
+  for(x in names(RunMatrixReduced[lapply(RunMatrixReduced, class) %in% c("character", "factor")])) {
+    if(!(x %in% names(presetcontrasts))) {
+      contrastslist[[x]] = contrasts
+    } else {
+      contrastslist[[x]] = presetcontrasts[[x]]
+    }
     contrastslist_correlationmatrix[[x]] = contr.simplex
 
   }
@@ -282,6 +330,11 @@ eval_design_mc = function(RunMatrix, model, alpha,
   }
 
   #---------- Convert dot formula to terms -----#
+
+  if(model == as.formula("~.*.")) {
+    model = as.formula(paste0("~(",paste(colnames(RunMatrixReduced),collapse = " + "),")^2"))
+  }
+
   #Variables used later: model, ModelMatrix
   if((as.character(model)[2] == ".")) {
     model = as.formula(paste("~", paste(attr(RunMatrixReduced, "names"), collapse=" + "), sep=""))
@@ -304,26 +357,20 @@ eval_design_mc = function(RunMatrix, model, alpha,
 
   #-----Autogenerate Anticipated Coefficients---#
   #Variables used later: anticoef
-  if(missing(anticoef)) {
-    anticoef = gen_anticoef(RunMatrixReduced, model)
+  if (!is.null(binomialprobs) && glmfamily == "binomial") {
+    #effectsize now has the same functionality as binomialprobs
+    effectsize = binomialprobs
+    message("binomialprobs deprecated: binomialprobs is now equivalent to effectsize. ")
   }
-  anticoef = anticoef * delta / 2
+  if (!missing(anticoef) && !missing(effectsize)) {
+    warning("User defined anticipated coefficients (anticoef) detected; ignoring effectsize argument.")
+  }
+  if(missing(anticoef)) {
+    default_coef = gen_anticoef(RunMatrixReduced, model)
+    anticoef = anticoef_from_delta(default_coef, effectsize, glmfamilyname)
+  }
   if(length(anticoef) != dim(ModelMatrix)[2]) {
     stop("Wrong number of anticipated coefficients")
-  }
-  if(glmfamilyname == "binomial" && is.null(binomialprobs)) {
-    warning("Warning: Binomial model using default (or user supplied) anticipated coefficients. Default anticipated coefficients can result in
-            large shifts in probability throughout the design space. It is recommended to specify probability bounds in the argument
-            binomialprobs for more realistic effect sizes.")
-  }
-  if(!is.null(binomialprobs)) {
-    if (glmfamilyname == "binomial") {
-      if (any(binomialprobs < 0) || any(binomialprobs > 1)) {
-        stop("binomialprobs must be between 0 and 1")
-      }
-      anticoef = gen_binomial_anticoef(gen_anticoef(RunMatrixReduced, model),
-                                     binomialprobs[1],binomialprobs[2]) #ignore delta argument
-    }
   }
 
   #-------------- Blocking errors --------------#
@@ -360,7 +407,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
     for(i in 1:(length(groups)-1)) {
       blocktemp = list()
       for(j in 1:length(groups[[i]])) {
-        row = rnorm(n=1,mean=0,sd=noise[i])
+        row = rnorm(n=1,mean=0,sd=sqrt(noise[i]))
         blocktemp[[j]] = do.call(rbind, replicate(groups[[i]][j],row,simplify = FALSE))
       }
       listblocknoise[[i]] = do.call(rbind,blocktemp)
@@ -520,11 +567,15 @@ eval_design_mc = function(RunMatrix, model, alpha,
   if(detailedoutput) {
     retval$anticoef = anticoef
     retval$alpha = alpha
-    retval$glmfamily = glmfamily
+    if (is.character(glmfamilyname)) {
+      retval$glmfamily = glmfamilyname
+    }
+    else { #user supplied a glm family object
+      retval$glmfamily = paste(glmfamilyname, collapse = ' ')
+    }
     retval$trials = nrow(RunMatrix)
     retval$nsim = nsim
     retval$blocking = blocking
-    retval$delta = delta
   }
 
   colnames(estimates) = parameter_names

@@ -116,15 +116,19 @@ test_that("eval_design example code runs without errors", {
   factorial <- expand.grid(A=c(1,-1),B=c(1,-1),C=c(1,-1))
   expect_silent({optdesign = gen_design(candidateset=factorial, model= ~A+B+C,trials=11,optimality="D",repeats=100)})
   #'
-  #'#Now evaluating that design (with default anticipated coefficients and a delta of 2):
+  #'#Now evaluating that design (with default anticipated coefficients and a effectsize of 2):
   expect_silent(eval_design(RunMatrix=optdesign, model= ~A+B+C, alpha=0.2))
   #'
   #'#Evaluating a subset of the design (changing the power due to a different number of
   #'#degrees of freedom)
   expect_silent(eval_design(RunMatrix=optdesign, model= ~A+C, alpha=0.2))
   #'
-  #'#Halving the signal-to-noise ratio by setting a different delta (default is 2):
-  expect_silent(eval_design(RunMatrix=optdesign, model= ~A+B+C, alpha=0.2,delta=1))
+  #'#Halving the signal-to-noise ratio by setting a different effectsize (default is 2):
+  expect_silent(eval_design(RunMatrix=optdesign, model= ~A+B+C, alpha=0.2,effectsize=1))
+
+  #'#Trying with ~.*. operator
+  expect_silent(eval_design(RunMatrix=optdesign, model= ~.*., alpha=0.2,effectsize=1))
+
   #'
   #'#With 3+ level categorical factors, the choice of anticipated coefficients directly changes the
   #'#final power calculation. For the most conservative power calculation, that involves
@@ -183,7 +187,7 @@ test_that("eval_design_mc example code runs without errors", {
   expect_silent(eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, alpha=0.05, nsim=100,
                                glmfamily="gaussian"))
   expect_silent(eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, alpha=0.05,
-                               nsim=100, glmfamily="gaussian", delta=1))
+                               nsim=100, glmfamily="gaussian", effectsize=1))
   expect_silent(eval_design_mc(RunMatrix=designcoffee, model=~cost + type, alpha=0.05,
                  nsim=100, glmfamily="gaussian"))
   expect_silent(eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, 0.05,
@@ -193,6 +197,11 @@ test_that("eval_design_mc example code runs without errors", {
   #'\dontrun{eval_design_mc(RunMatrix=designcoffee, model=~cost + type + size, 0.05,
   #'               nsim=10000, glmfamily="gaussian", parallel=TRUE)}
   #'
+  #'
+  #'#Trying with ~.*. operator
+  expect_silent(eval_design_mc(RunMatrix=designcoffee,model=~.*., 0.05,
+                               nsim=100, glmfamily="gaussian"))
+
   factorialcoffee = expand.grid(Temp = c(1,-1),
                                 Store=as.factor(c("A","B")),
                                 cost=c(-1, 1),
@@ -206,12 +215,12 @@ test_that("eval_design_mc example code runs without errors", {
                                splitplotdesign=htcdesign, splitplotsizes=4)
   })
   expect_warning(eval_design_mc(RunMatrix=splitplotdesign, model=~Store+Temp+cost+type+size, alpha=0.05, blocking=TRUE,
-                                nsim=100, glmfamily="gaussian", varianceratios = c(5,4,2)))
+                                nsim=1, glmfamily="gaussian", varianceratios = c(5,4,2)))
   factorialbinom = expand.grid(a=c(-1,1),b=c(-1,1))
   expect_silent({
     designbinom = gen_design(factorialbinom,model=~a+b,trials=90,optimality="D",repeats=100)
   })
-  expect_warning(eval_design_mc(designbinom,~a+b,alpha=0.2,nsim=100,anticoef=c(1.5,0.7,0.7),
+  expect_silent(eval_design_mc(designbinom,~a+b,alpha=0.2,nsim=100,anticoef=c(1.5,0.7,0.7),
                  glmfamily="binomial"))
   factorialpois = expand.grid(a=as.numeric(c(-1,0,1)),b=c(-1,0,1))
   designpois = gen_design(factorialpois, ~a+b, trials=90, optimality="D", repeats=100)
@@ -230,10 +239,12 @@ test_that("eval_design_survival_mc example code runs without errors", {
     Y[censored] = 1
     return(Surv(time=Y, event=!censored, type="right"))
   }
-  expect_silent({
+  expect_warning({
     a = eval_design_survival_mc(RunMatrix=design, model=~a, alpha=0.05, nsim=100,
-                          distribution="exponential", rfunctionsurv=rsurvival, delta=1)
-  })
+                          distribution="exponential", rfunctionsurv=rsurvival, effectsize=1)
+  },
+  "default or length 1 delta used with distribution == 'exponential'. This can lead to unrealistic effect sizes - make sure the generated anticipated coeffcients are appropriate.")
+
   rlognorm = function(X, b) {
     Y = rlnorm(n=nrow(X), meanlog = X %*% b, sdlog = 0.4)
     censored = Y > 1.2
@@ -243,7 +254,7 @@ test_that("eval_design_survival_mc example code runs without errors", {
   expect_silent(
     eval_design_survival_mc(RunMatrix=design, model=~a, alpha=0.2, nsim=100,
                           distribution="lognormal", rfunctionsurv=rlognorm,
-                          anticoef=c(0.184,0.101), delta=2, scale=0.4)
+                          anticoef=c(0.184,0.101), scale=0.4)
   )
 })
 
@@ -288,7 +299,11 @@ test_that("eval_design_custom_mc example code runs without errors", {
   #'#in along with the standard inputs for eval_design_mc.
   #'
   expect_silent(eval_design_custom_mc(RunMatrix=design,model=~a,alpha=0.05,nsim=100,
-                        fitfunction=fitsurv, pvalfunction=pvalsurv, rfunction=rsurvival, delta=1))
+                        fitfunction=fitsurv, pvalfunction=pvalsurv, rfunction=rsurvival, effectsize=1))
+
+  #trying with ~. operator
+  expect_silent(eval_design_custom_mc(RunMatrix=design,model=~.,alpha=0.05,nsim=100,
+                                      fitfunction=fitsurv, pvalfunction=pvalsurv, rfunction=rsurvival, effectsize=1))
   #'
   #'#This has the exact same behavior as eval_design_survival_mc.
   #'
