@@ -537,7 +537,7 @@ gen_design = function(candidateset, model, trials,
         }
       }
     } else {
-      if(is.null(options("cores"))) {
+      if(is.null(options("cores")[[1]])) {
         numbercores = parallel::detectCores()
       } else {
         numbercores = options("cores")[[1]]
@@ -548,9 +548,6 @@ gen_design = function(candidateset, model, trials,
 
         genOutput = tryCatch({
           foreach(i=1:repeats) %dopar% {
-            if(!is.null(progressBarUpdater)) {
-              progressBarUpdater(1/repeats)
-            }
             randomIndices = sample(nrow(candidatesetmm), trials, replace = initialReplace)
             genOptimalDesign(initialdesign = candidatesetmm[randomIndices,], candidatelist=candidatesetmm,
                              condition=optimality, momentsmatrix = mm, initialRows = randomIndices,
@@ -558,8 +555,9 @@ gen_design = function(candidateset, model, trials,
                              aliascandidatelist = aliasmm, minDopt = minDopt)
           }
           }, finally = {
-          parallel::stopCluster(cl)
-          closeAllConnections()
+          tryCatch({
+            parallel::stopCluster(cl)
+          }, error = function (e) {})
         })
       } else {
         cl = parallel::makeCluster(numbercores)
@@ -583,8 +581,9 @@ gen_design = function(candidateset, model, trials,
                              aliascandidatelist = aliasmm, minDopt = minDopt)
           }
           }, finally = {
-          parallel::stopCluster(cl)
-          closeAllConnections()
+            tryCatch({
+              parallel::stopCluster(cl)
+            }, error = function (e) {})
         })
         genOutput = as.list(c(genOutputOne,genOutput))
       }
@@ -616,6 +615,7 @@ gen_design = function(candidateset, model, trials,
       anydisallowed = FALSE
       disallowedcomb = matrix()
     }
+
     if (!parallel) {
       if(!timer) {
         for(i in 1:repeats) {
@@ -644,6 +644,9 @@ gen_design = function(candidateset, model, trials,
                                                  aliascandidatelist = aliasmm, minDopt = minDopt, interactions = interactionlist,
                                                  disallowed = disallowedcomb, anydisallowed = anydisallowed)
         cat(paste(c("is: ", floor((proc.time()-ptm)[3]*(repeats-1)), " seconds."),collapse=""))
+        if(!is.null(progressBarUpdater)) {
+          progressBarUpdater(1/repeats)
+        }
         for(i in 2:repeats) {
           if(!is.null(progressBarUpdater)) {
             progressBarUpdater(1/repeats)
@@ -658,15 +661,14 @@ gen_design = function(candidateset, model, trials,
         }
       }
     } else {
-      if(is.null(options("cores"))) {
+      if(is.null(options("cores")[[1]])) {
         numbercores = parallel::detectCores()
       } else {
         numbercores = options("cores")[[1]]
       }
       if(!timer) {
-        cl <- parallel::makeCluster(numbercores)
+        cl = parallel::makeCluster(numbercores)
         doParallel::registerDoParallel(cl, cores = numbercores)
-
         genOutput = tryCatch({
           foreach(i=1:repeats) %dopar% {
             randomIndices = sample(nrow(candidateset), trials, replace = initialReplace)
@@ -678,11 +680,12 @@ gen_design = function(candidateset, model, trials,
                                     disallowed = disallowedcomb, anydisallowed = anydisallowed)
           }
           }, finally = {
-            parallel::stopCluster(cl)
-            closeAllConnections()
+            tryCatch({
+              parallel::stopCluster(cl)
+            }, error = function (e) {})
         })
       } else {
-        cl <- parallel::makeCluster(numbercores)
+        cl = parallel::makeCluster(numbercores)
         doParallel::registerDoParallel(cl, cores = numbercores)
 
         cat("Estimated time to completion ... ")
@@ -707,8 +710,9 @@ gen_design = function(candidateset, model, trials,
                                     disallowed = disallowedcomb, anydisallowed = anydisallowed)
           }
           }, finally = {
-            parallel::stopCluster(cl)
-            closeAllConnections()
+            tryCatch({
+              parallel::stopCluster(cl)
+            }, error = function (e) {})
         })
         genOutput = as.list(c(genOutputOne,genOutput))
       }
