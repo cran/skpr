@@ -170,7 +170,8 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
     blockcols = grepl("(Block|block)(\\s?)+[0-9]+$",colnames(RunMatrix),perl=TRUE) | grepl("(Whole Plots|Subplots)",colnames(RunMatrix),perl=TRUE)
     if(blocking) {
       warning("Detected externally generated blocking columns: attempting to interpret blocking structure.")
-      blockmatrix = RunMatrix[,blockcols]
+      blockmatrix = RunMatrix[,blockcols,drop=FALSE]
+      blockmatrix = blockmatrix[,order(unlist(lapply(lapply(blockmatrix,unique),length))),drop=FALSE]
       blockvals = lapply(blockmatrix,unique)
       rownamematrix = matrix(nrow=nrow(RunMatrix),ncol=ncol(blockmatrix) + 1)
       for(col in 1:ncol(blockmatrix)) {
@@ -199,14 +200,14 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
       }
       allattr = attributes(RunMatrix)
       allattr$names = allattr$names[!blockcols]
-      RunMatrix = RunMatrix[,!blockcols]
+      RunMatrix = RunMatrix[,!blockcols,drop=FALSE]
       attributes(RunMatrix) = allattr
       rownames(RunMatrix) = apply(rownamematrix,1,paste,collapse=".")
     } else {
       warning("Detected externally generated blocking columns but blocking not turned on: ignoring blocking structure and removing blocking columns.")
       allattr = attributes(RunMatrix)
       allattr$names = allattr$names[!blockcols]
-      RunMatrix = RunMatrix[,!blockcols]
+      RunMatrix = RunMatrix[,!blockcols,drop=FALSE]
       attributes(RunMatrix) = allattr
     }
   }
@@ -279,6 +280,9 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
   if(missing(anticoef)) {
     default_coef = gen_anticoef(RunMatrix, model)
     anticoef = anticoef_from_delta(default_coef, effectsize, "gaussian")
+    if(!("(Intercept)" %in% colnames(attr(RunMatrix,"modelmatrix")))) {
+      anticoef = anticoef[-1]
+    }
   }
   if(length(anticoef) != dim(attr(RunMatrix,"modelmatrix"))[2]) {
     stop("Wrong number of anticipated coefficients")
@@ -375,10 +379,14 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
     factornames = attr(terms(model),"term.labels")
     factormatrix = attr(terms(model),"factors")
     interactionterms = factornames[apply(factormatrix,2,sum) > 1]
-    higherorderterms = factornames[!(factornames %in% colnames(RunMatrix)) & !(apply(factormatrix,2,sum) > 1)]
+    higherorderterms = factornames[!(gsub("`","",factornames,fixed=TRUE) %in% colnames(RunMatrix)) & !(apply(factormatrix,2,sum) > 1)]
     levelvector = sapply(lapply(RunMatrix,unique),length)
     levelvector[lapply(RunMatrix,class)=="numeric"] = 2
-    levelvector = c(1,levelvector-1)
+    if(("(Intercept)" %in% colnames(attr(RunMatrix,"modelmatrix")))) {
+      levelvector = c(1,levelvector-1)
+    } else {
+      levelvector = levelvector-1
+    }
     higherorderlevelvector = rep(1,length(higherorderterms))
     names(higherorderlevelvector) = higherorderterms
     levelvector = c(levelvector, higherorderlevelvector)
@@ -386,7 +394,7 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
     for(interaction in interactionterms) {
       numberlevels = 1
       for(term in unlist(strsplit(interaction,split="(\\s+)?:(\\s+)?|(\\s+)?\\*(\\s+)?"))) {
-        numberlevels = numberlevels * levelvector[term]
+        numberlevels = numberlevels * levelvector[gsub("`","",term,fixed=TRUE)]
       }
       levelvector = c(levelvector, numberlevels)
     }
@@ -395,7 +403,11 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
     parameterresults = parameterpower(RunMatrix,anticoef,alpha,vInv=vInv)
 
     typevector = c(rep("effect.power",length(effectresults)),rep("parameter.power",length(parameterresults)))
-    effectnamevector = c("(Intercept)",factornames)
+    if(("(Intercept)" %in% colnames(attr(RunMatrix,"modelmatrix")))) {
+      effectnamevector = c("(Intercept)",factornames)
+    } else {
+      effectnamevector = factornames
+    }
     parameternamevector = colnames(attr(RunMatrix,"modelmatrix"))
     namevector = c(effectnamevector,parameternamevector)
     powervector = c(effectresults,parameterresults)
@@ -415,9 +427,16 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
       if(!blocking) {
         V = diag(nrow(modelmatrix_cor))
       }
-      correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor))[-1,-1])
-      colnames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
-      rownames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
+      if("(Intercept)" %in% colnames(modelmatrix_cor)) {
+        correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor))[-1,-1])
+        colnames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
+        rownames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
+      } else {
+        correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor)))
+        colnames(correlation.matrix) = colnames(modelmatrix_cor)
+        rownames(correlation.matrix) = colnames(modelmatrix_cor)
+      }
+
       attr(results,"correlation.matrix") = round(correlation.matrix,8)
     }
     attr(results,"generating.model") = model

@@ -193,7 +193,7 @@ eval_design_survival_mc = function(RunMatrix, model, alpha,
   RunMatrixReduced = reduceRunMatrix(RunMatrix,model)
 
   contrastslist = list()
-  for(x in names(RunMatrix[lapply(RunMatrixReduced, class) %in% c("character", "factor")])) {
+  for(x in names(RunMatrixReduced[lapply(RunMatrixReduced, class) %in% c("character", "factor")])) {
     if(!(x %in% names(presetcontrasts))) {
       contrastslist[[x]] = contrasts
     } else {
@@ -217,7 +217,6 @@ eval_design_survival_mc = function(RunMatrix, model, alpha,
   ModelMatrix = model.matrix(model,RunMatrixReduced,contrasts.arg=contrastslist)
   #We'll need the parameter and effect names for output
   parameter_names = colnames(ModelMatrix)
-  effect_names = c("(Intercept)", attr(terms(model), 'term.labels'))
 
   # autogenerate anticipated coefficients
   if (!missing(anticoef) && !missing(effectsize)) {
@@ -226,6 +225,9 @@ eval_design_survival_mc = function(RunMatrix, model, alpha,
   if(missing(anticoef)) {
     default_coef = gen_anticoef(RunMatrixReduced, model)
     anticoef = anticoef_from_delta_surv(default_coef, effectsize, distribution)
+    if(!("(Intercept)" %in% colnames(ModelMatrix))) {
+      anticoef = anticoef[-1]
+    }
   }
   if(length(anticoef) != dim(ModelMatrix)[2]) {
     stop("Wrong number of anticipated coefficients")
@@ -273,8 +275,13 @@ eval_design_survival_mc = function(RunMatrix, model, alpha,
     power_values = power_values / nsim
 
   } else {
-    cl <- parallel::makeCluster(parallel::detectCores())
-    doParallel::registerDoParallel(cl, cores = parallel::detectCores())
+    if(is.null(options("cores")[[1]])) {
+      numbercores = parallel::detectCores()
+    } else {
+      numbercores = options("cores")[[1]]
+    }
+    cl = parallel::makeCluster(numbercores)
+    doParallel::registerDoParallel(cl, cores = numbercores)
 
     power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .packages=c("survival")) %dopar% {
       power_values = rep(0, ncol(ModelMatrix))

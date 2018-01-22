@@ -3,26 +3,161 @@ library(rintrojs)
 
 #ui.R for skprGUI
 
+panelstyle = "background-color: rgba(86, 96, 133, 0.3);
+                border-radius: 15px;
+                -webkit-box-shadow: inset 0px 0px 10px 4px rgba(41, 49, 83, 0.42);
+                box-shadow: inset 0px 0px 10px 2px rgba(41, 49, 83, 0.42);
+                padding-top: 15px;
+                padding-bottom: 10px;
+                color: rgb(255, 255, 255);
+                border: 0px;"
+
 shinyUI(fluidPage(theme = shinytheme("yeti"),
                   introjsUI(),
-                  HTML("<style> table {font-size=14px;}
-                       .btn2 {color: #fff; background-color: #337ab7; border-color: #2e6da4}
-                       .btn2:hover {color: #fff; background-color: #609dd2; border-color: #2e6da4}
-                       .btn2:active {color: #fff; background-color: #38475e; border-color: #2e6da4}
-                       .btn2:focus {color: #fff; background-color: #337ab7; border-color: #2e6da4}</style>"),
+                  HTML("
+<link rel='stylesheet' href='./waves.css' type='text/css'/>
+<script type='text/javascript' src='./waves.js'/>
+<script type='text/javascript'>
+
+$(document).on('ready', function() {
+
+  // Init Waves
+  var config = {
+    duration: 500,
+    delay: 200
+  };
+  Waves.init(config);
+  Waves.attach('button', 'waves-light');
+  init();
+
+});
+
+</script>
+
+                        <style> table {font-size: 14px;}
+                       .btn2 {
+                       color: #fff;
+                       border-color: rgba(46, 109, 164, 0);
+                       background: linear-gradient(to bottom, rgb(64, 108, 221) 0%, rgb(107, 167, 223) 100%);
+                       border-radius: 11px;
+                       -webkit-box-shadow: 0px 2px 0px 0px rgb(59, 76, 145);
+                       box-shadow: 0px 2px 0px 0px rgb(59, 76, 145);
+                       }
+                       .btn2:hover {
+                       color: #fff;
+                       border-color: rgb(48, 163, 43);
+                       background: linear-gradient(to bottom, rgb(78, 206, 114) 0%, rgb(71, 146, 95) 100%);
+                       border-radius: 11px;
+                       -webkit-box-shadow: 0px 2px 0px 0px rgb(59, 76, 145);
+                       box-shadow: 0px 2px 0px 0px rgb(59, 76, 145);
+                       }
+                       .btn2:active {
+                       color: #fff;
+                       border-color: rgb(64, 108, 221);
+                       background-color: rgb(71, 146, 95);
+                       border-radius: 11px;
+                       -webkit-box-shadow: 0px 0px 0px 0px rgb(59, 76, 145);
+                       box-shadow: 0px 0px 0px 0px rgb(59, 76, 145);
+                       margin-top: 2px;
+                       margin-bottom: -2px;
+                       }
+                       .btn2:focus {
+                       color: #fff;
+                       }
+                       .nav-tabs>li>a {
+                       background-color: rgb(71, 81, 156);
+                       border: 1px solid rgb(71, 81, 156);
+                       color: #ffffff;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .nav-tabs>li>a:active {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .nav-tabs>li>a:focus {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+
+                       .nav-tabs>li>a:hover {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .nav-tabs>li.active>a {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .nav-tabs>li.active>a:focus {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .nav-tabs>li.active>a:hover {
+                       background-color: rgb(184, 255, 181);
+                       border: 1px solid rgb(184, 255, 181);
+                       color: #000000;
+                       transition: background-color 0.2s ease-in-out,color 0.2s ease-in-out,border 0.2s ease-in-out;
+                       }
+                       .selectize-control:hover {
+                       -webkit-box-shadow: 0px 5px 10px 0px rgba(255, 255, 255, 0.30);
+                       box-shadow: 0px 5px 10px 0px rgba(255, 255, 255, 0.30);
+                       transition: box-shadow 0.2s ease-in-out;
+                       }
+
+
+                       .form-control:hover {
+                       -webkit-box-shadow: 0px 5px 10px 0px rgba(0, 0, 0, 0.30);
+                       box-shadow: 0px 5px 10px 0px rgba(255, 255, 255, 0.41);
+                       transition: box-shadow 0.2s ease-in-out;
+                       }
+                       .well .nav-tabs>li {
+                       width: 33%;
+                       }
+                       .well h1 {
+                       text-shadow: 0px 0px 30px rgb(255, 255, 255);
+                       }
+                       .control-label, label {font-size: 16px; font-weight: 600;}
+                       .well h3 {margin-top: 0px;}
+                       .well .nav {margin-bottom: 6px; margin-top: 12px;margin-left: -20px;margin-right: -26px; border-bottom: 1px solid transparent;text-align: center;}
+                       hr {margin-top: 8px; margin-bottom: 0px;}
+                       .well hr {
+                       margin-top: -12px;
+                       margin-bottom: 13px;
+                       margin-left: -20px;
+                       margin-right: -20px;
+                       border-top: 1px solid rgb(0, 0, 0);
+                       }
+                       @media (min-width: 768px) and (max-width: 1150px) { #designtext {font-size: 0;} }
+                       @media (min-width: 768px) { #evalbutton {float: right;} .btn2 { width: 100%; } }
+                       @media (max-width: 767px) { #evalbutton {margin-top: 10px;} .btn2{ width: 100%;} }
+                       .irs-grid-text {color: rgb(0, 0, 0);}</style>"),
                   sidebarLayout(
-                    sidebarPanel(HTML("<h1 style='margin-top: 0px;'>skpr<strong style='color=red;'>GUI</strong></h1>"),
+                    sidebarPanel(tags$style(".well {background-color:#a1b0da;
+                                            border: 1px solid #a1b0da;
+                                            border-radius: 13px;
+                                            -webkit-box-shadow: 0px 0px 10px 5px rgba(0, 0, 0, 0.15);
+                                            box-shadow: 0px 0px 10px 5px rgba(0, 0, 0, 0.15);}"),
+                                 HTML("<h1 style='margin-top: 0px;'>skpr<strong style='color: black;'>GUI</strong></h1>"),
+                                 hr(),
                                  introBox(fluidRow(
                                    column(width=6,
-                                          actionButton("submitbutton", "Generate Design",
-                                                       class="btn2")
+                                          actionButton("submitbutton", HTML("<strong>Generate <br>Design</strong>"),
+                                                       class="btn2 waves-effect waves-light")
                                    ),
                                    column(width=6,
-                                          actionButton("evalbutton", "Evaluate Design",
-                                                       class="btn2")
+                                          actionButton("evalbutton", HTML("<strong>Evaluate <br>Design</strong>"),
+                                                       class="btn2 waves-effect waves-light")
                                    )
                                  ), data.step = 1, data.intro="<h3><center>Welcome to skpr!</h3></center> This tutorial will walk you through all of the features of the GUI and teach you how to create and analyze an experimental design. All features seen in the GUI can be easily recreated in the console, and skpr provides the full script used to do that, based on your inputs. Additional advanced capabilities not available in the GUI can be accessed via the code. <b>Let's get started!</b> <br><br>Click these buttons to generate a new design, or re-run a new design evaluation with updated parameters."),
-                                 hr(),
                                  tabsetPanel(
                                    tabPanel(
                                      "Basic",
@@ -39,14 +174,15 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      conditionalPanel(condition = "input.numberfactors == 6",
                                                       fluidRow(
                                                         column(width=12,
-                                                               HTML("<p style=\"color: #F00;\">skprGUI only supports up to 6 factors. Alter the generated code to add more.</p>")
+                                                               HTML("<p style=\"color: #000;\">skprGUI only supports up to 6 factors. Alter the generated code to add more.</p>")
                                                         )
                                                       )
                                      ),
                                      introBox(numericInput(inputId = "numberfactors",
                                                            min=1,max=6, 1, label = "Number of Factors"), data.step = 4, data.intro = "This is the number of factors in the experiment. skprGUI supports up to 6 factors, but the underlying code supports any number of factors by calling the code directly. If you require more factors, use the generating code as a template and add more terms to the candidate set."),
                                      br(),
-                                     introBox(wellPanel(h3("Factor 1"),
+                                     introBox(wellPanel(style = panelstyle,
+                                                        h3("Factor 1"),
                                                         fluidRow(
                                                           column(width=5,
                                                                  selectInput(inputId = "blockdepth1",
@@ -111,7 +247,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      ), data.step = 5, data.intro = "This pane allows you to change the factor type, specify categorical and discrete numeric levels, and make factors hard-to-change. If numeric, specify the highest and lowest values and the number of breaks between. If categorical or discrete numeric, specify levels separated by commas."),
                                      conditionalPanel(
                                        condition = "input.numberfactors > 1",
-                                       wellPanel(h3("Factor 2"),
+                                       wellPanel(style = panelstyle,
+                                                 h3("Factor 2"),
                                                  fluidRow(
                                                    column(width=5,
                                                           selectInput(inputId = "blockdepth2",
@@ -177,7 +314,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      ),
                                      conditionalPanel(
                                        condition = "input.numberfactors > 2",
-                                       wellPanel(h3("Factor 3"),
+                                       wellPanel(style = panelstyle,
+                                                 h3("Factor 3"),
                                                  fluidRow(
                                                    column(width=5,
                                                           selectInput(inputId = "blockdepth3",
@@ -243,7 +381,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      ),
                                      conditionalPanel(
                                        condition = "input.numberfactors > 3",
-                                       wellPanel(h3("Factor 4"),
+                                       wellPanel(style = panelstyle,
+                                                 h3("Factor 4"),
                                                  fluidRow(
                                                    column(width=5,
                                                           selectInput(inputId = "blockdepth4",
@@ -309,7 +448,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      ),
                                      conditionalPanel(
                                        condition = "input.numberfactors > 4",
-                                       wellPanel(h3("Factor 5"),
+                                       wellPanel(style = panelstyle,
+                                                 h3("Factor 5"),
                                                  fluidRow(
                                                    column(width=5,
                                                           selectInput(inputId = "blockdepth5",
@@ -375,7 +515,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                      ),
                                      conditionalPanel(
                                        condition = "input.numberfactors > 5",
-                                       wellPanel(h3("Factor 6"),
+                                       wellPanel(style = panelstyle,
+                                                 h3("Factor 6"),
                                                  fluidRow(
                                                    column(width=5,
                                                           selectInput(inputId = "blockdepth6",
@@ -445,7 +586,7 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                                                  choices = c("D","I","A","Alias","G","E","T"),
                                                                  label = "Optimality"),data.step = 6, data.intro = "Change the optimality criterion. If Alias-optimal selected, additional Alias-optimal specific options (minimum D-optimality and Alias-interaction level) will become available to change."),
                                             introBox(numericInput(inputId = "repeats",
-                                                                  10, label = "Repeats"),data.step = 7, data.intro = "Changes the depth of the optimal design search. Increasing this will increase the probability that an optimal design is found."),
+                                                                  20, label = "Repeats"),data.step = 7, data.intro = "Changes the depth of the optimal design search. Increasing this will increase the probability that an optimal design is found."),
                                             introBox(numericInput(inputId = "varianceratio",
                                                                   1, label = "Variance Ratio"), data.step = 8, data.intro = "The ratio of the variance between whole plots and subplots for split-plot designs."),
                                             conditionalPanel(
@@ -453,7 +594,7 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                               numericInput(inputId = "aliaspower",
                                                            min=2,value=2, label = "Alias Optimal Interaction Level"),
                                               sliderInput(inputId = "mindopt",
-                                                          min=0,max=1,value=0.95, label = "Minimum D Optimality")
+                                                          min=0,max=1,value=0.8, label = "Minimum D Optimality")
                                             ),
                                             introBox(checkboxInput(inputId = "setseed",
                                                                    label = "Set Random Number Generator Seed",
@@ -474,7 +615,8 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                                                                    value=FALSE), data.step=12, data.intro = "Outputs a tidy data frame of additional design information, including anticipated coefficients and design size."),
                                             introBox(checkboxInput(inputId = "advanceddiagnostics",
                                                                    label = "Advanced Design Diagnostics",
-                                                                   value=TRUE), data.step=13, data.intro = "Outputs additional information about the optimal search and advanced Monte Carlo information. This includes a list of all available optimal criteria, a plot of the computed optimal values during the search (useful for determining if the repeats argument should be increased), and a histogram of p-values for each parameter in Monte Carlo simulations.")
+                                                                   value=TRUE), data.step=13, data.intro = "Outputs additional information about the optimal search and advanced Monte Carlo information. This includes a list of all available optimal criteria, a plot of the computed optimal values during the search (useful for determining if the repeats argument should be increased), and a histogram of p-values for each parameter in Monte Carlo simulations."),
+                                            selectInput(inputId = "colorchoice",choices = c("Default"="D","Magma"="A","Inferno"="B","Plasma"="C","None"="none"), label = "Color")
                                    ),
                                    tabPanel("Power",
                                             introBox(introBox(introBox(radioButtons(inputId = "evaltype",
@@ -569,6 +711,7 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                     tabsetPanel(
                       tabPanel("Design",
                                h2("Design"),
+                               checkboxInput(inputId = "orderdesign",label = "Order Design",value=FALSE),
                                introBox(tableOutput(outputId = "runmatrix"),data.step = 25, data.intro = "The generated optimal design. If hard-to-change factors are present, there will be an additional blocking column specifying the block number. Here, we have generated a design with three factors and 12 runs."),
                                hr()
                       ),
@@ -712,6 +855,6 @@ shinyUI(fluidPage(theme = shinytheme("yeti"),
                       )
                     )
                     )
+                    )
                   )
-)
 )

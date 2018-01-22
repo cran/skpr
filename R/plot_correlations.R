@@ -29,7 +29,6 @@
 #'plot_correlations(cardesign,customcolors=c("blue","grey","red"))
 #'plot_correlations(cardesign,customcolors=c("blue","green","yellow","orange","red"))
 plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
-
   #Remove skpr-generated REML blocking indicators if present
   if(!is.null(attr(genoutput,"splitanalyzable"))) {
     if(attr(genoutput,"splitanalyzable")) {
@@ -42,10 +41,10 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
 
   if(is.null(model)) {
     if(!is.null(attr(genoutput,"runmatrix"))) {
-      variables = colnames(attr(genoutput,"runmatrix"))
+      variables = paste0("`",colnames(attr(genoutput,"runmatrix")),"`")
       runmat = attr(genoutput,"runmatrix")
     } else {
-      variables = colnames(genoutput)
+      variables =  paste0("`",colnames(genoutput),"`")
       runmat = genoutput
     }
     linearterms = paste(variables, collapse=" + ")
@@ -67,7 +66,7 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
   }
   #------Normalize/Center numeric columns ------#
   for(column in 1:ncol(genoutput)) {
-    if(class(genoutput[,column]) == "numeric") {
+    if(is.numeric(genoutput[,column])) {
       midvalue = mean(c(max(genoutput[,column]),min(genoutput[,column])))
       genoutput[,column] = (genoutput[,column]-midvalue)/(max(genoutput[,column])-midvalue)
     }
@@ -78,7 +77,7 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
   cormat = abs(cov2cor(getPseudoInverse(t(mm) %*% solve(V) %*% mm))[-1,-1])
 
   if(is.null(customcolors)) {
-    imagecolors = colorRampPalette(colors=c("black","white","green"))(101)
+    imagecolors = colorRampPalette(colors=c("black","green"))(101)
   } else {
     imagecolors = colorRampPalette(customcolors)(101)
   }

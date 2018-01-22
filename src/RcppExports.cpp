@@ -115,7 +115,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // genBlockedOptimalDesign
-List genBlockedOptimalDesign(arma::mat initialdesign, arma::mat candidatelist, const arma::mat& blockeddesign, const std::string condition, const arma::mat& momentsmatrix, IntegerVector initialRows, const arma::mat& blockedVar, const arma::mat& aliasdesign, const arma::mat& aliascandidatelist, double minDopt, List interactions, const arma::mat& disallowed, const bool anydisallowed);
+List genBlockedOptimalDesign(arma::mat initialdesign, arma::mat candidatelist, const arma::mat& blockeddesign, const std::string condition, const arma::mat& momentsmatrix, IntegerVector initialRows, const arma::mat& blockedVar, arma::mat aliasdesign, arma::mat aliascandidatelist, double minDopt, List interactions, const arma::mat disallowed, const bool anydisallowed);
 RcppExport SEXP _skpr_genBlockedOptimalDesign(SEXP initialdesignSEXP, SEXP candidatelistSEXP, SEXP blockeddesignSEXP, SEXP conditionSEXP, SEXP momentsmatrixSEXP, SEXP initialRowsSEXP, SEXP blockedVarSEXP, SEXP aliasdesignSEXP, SEXP aliascandidatelistSEXP, SEXP minDoptSEXP, SEXP interactionsSEXP, SEXP disallowedSEXP, SEXP anydisallowedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -127,11 +127,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type momentsmatrix(momentsmatrixSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type initialRows(initialRowsSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type blockedVar(blockedVarSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type aliasdesign(aliasdesignSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type aliascandidatelist(aliascandidatelistSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type aliasdesign(aliasdesignSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type aliascandidatelist(aliascandidatelistSEXP);
     Rcpp::traits::input_parameter< double >::type minDopt(minDoptSEXP);
     Rcpp::traits::input_parameter< List >::type interactions(interactionsSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type disallowed(disallowedSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type disallowed(disallowedSEXP);
     Rcpp::traits::input_parameter< const bool >::type anydisallowed(anydisallowedSEXP);
     rcpp_result_gen = Rcpp::wrap(genBlockedOptimalDesign(initialdesign, candidatelist, blockeddesign, condition, momentsmatrix, initialRows, blockedVar, aliasdesign, aliascandidatelist, minDopt, interactions, disallowed, anydisallowed));
     return rcpp_result_gen;
@@ -160,25 +160,4 @@ BEGIN_RCPP
     rcpp_result_gen = Rcpp::wrap(IOptimality(currentDesign, momentsMatrix, blockedVar));
     return rcpp_result_gen;
 END_RCPP
-}
-
-static const R_CallMethodDef CallEntries[] = {
-    {"_skpr_AOptimality", (DL_FUNC) &_skpr_AOptimality, 1},
-    {"_skpr_calcAliasTrace", (DL_FUNC) &_skpr_calcAliasTrace, 2},
-    {"_skpr_calculateAOptimalityPseudo", (DL_FUNC) &_skpr_calculateAOptimalityPseudo, 1},
-    {"_skpr_calculateDEfficiency", (DL_FUNC) &_skpr_calculateDEfficiency, 1},
-    {"_skpr_covarianceMatrix", (DL_FUNC) &_skpr_covarianceMatrix, 1},
-    {"_skpr_covarianceMatrixPseudo", (DL_FUNC) &_skpr_covarianceMatrixPseudo, 1},
-    {"_skpr_DOptimality", (DL_FUNC) &_skpr_DOptimality, 1},
-    {"_skpr_DOptimalityBlocked", (DL_FUNC) &_skpr_DOptimalityBlocked, 2},
-    {"_skpr_genOptimalDesign", (DL_FUNC) &_skpr_genOptimalDesign, 8},
-    {"_skpr_genBlockedOptimalDesign", (DL_FUNC) &_skpr_genBlockedOptimalDesign, 13},
-    {"_skpr_getPseudoInverse", (DL_FUNC) &_skpr_getPseudoInverse, 1},
-    {"_skpr_IOptimality", (DL_FUNC) &_skpr_IOptimality, 3},
-    {NULL, NULL, 0}
-};
-
-RcppExport void R_init_skpr(DllInfo *dll) {
-    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
-    R_useDynamicSymbols(dll, FALSE);
 }
