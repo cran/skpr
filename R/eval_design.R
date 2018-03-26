@@ -29,7 +29,6 @@
 #'anticipated coefficents should be conservative or not. TRUE will give the most conservative
 #'estimate of power by setting all but one level in each categorical factor's anticipated coefficients
 #'to zero. Default FALSE.
-#'@param delta Deprecated. Use effectsize instead.
 #'@return A data frame with the parameters of the model, the type of power analysis, and the power. Several
 #'design diagnostics are stored as attributes of the data frame. In particular,
 #'the \code{modelmatrix} attribute contains the model matrix that was used for power evaluation. This is
@@ -141,12 +140,7 @@
 #'#Deeper levels of blocking can be specified with additional periods.
 eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
                        effectsize=2, varianceratios=1, contrasts=contr.sum, conservative=FALSE,
-                       detailedoutput=FALSE, delta=NULL) {
-
-  if(!missing(delta)) {
-    warning("argument delta deprecated. Use effectsize instead. Setting effectsize = delta.")
-    effectsize=delta
-  }
+                       detailedoutput=FALSE) {
 
   if(class(RunMatrix) %in% c("tbl","tbl_df") && blocking) {
     warning("Tibbles strip out rownames, which encode blocking information. Use data frames if the design has a split plot structure. Converting input to data frame")
@@ -502,7 +496,7 @@ eval_design = function(RunMatrix, model, alpha, blocking=FALSE, anticoef=NULL,
       }
       #at this point, since we are going to specify anticoef, do not use the effectsize argument
       #in the subsequent call. Do replicate the magnitudes from the original anticoef
-      conservative_anticoef = conservative_anticoef * anticoef
+      conservative_anticoef = conservative_anticoef * effectsize / 2
       results = eval_design(RunMatrix=RunMatrix, model=model, alpha=alpha, blocking=blocking,
                   anticoef=conservative_anticoef,
                   detailedoutput = detailedoutput,

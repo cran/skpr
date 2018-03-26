@@ -8,7 +8,7 @@ gen_design(candidateset, model, trials, splitplotdesign = NULL,
   splitplotsizes = NULL, optimality = "D", repeats = 20,
   varianceratio = 1, contrast = contr.simplex, aliaspower = 2,
   minDopt = 0.8, parallel = FALSE, timer = FALSE, splitcolumns = FALSE,
-  progressBarUpdater = NULL)
+  advancedoptions = NULL, progressBarUpdater = NULL)
 }
 \arguments{
 \item{candidateset}{A data frame of candidate test points; each run of the optimal design will be chosen (with replacement)
@@ -53,12 +53,17 @@ a split plot design. Default 1.}
 
 \item{minDopt}{Default 0.8. Minimum value for the D-Optimality of a design when searching for Alias-optimal designs.}
 
-\item{parallel}{Default FALSE. If TRUE, the optimal design search will use all the available cores. This can lead to a substantial speed-up in the search for complex designs. If the user wants to set the number of cores manually, they can do this by setting options("cores") to the desired number.}
+\item{parallel}{Default FALSE. If TRUE, the optimal design search will use all the available cores. This can lead to a substantial speed-up in the search for complex designs. If the user wants to set the number of cores manually, they can do this by setting options("cores") to the desired number. NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.}
 
 \item{timer}{Default FALSE. If TRUE, will print an estimate of the optimal design search time.}
 
 \item{splitcolumns}{Default FALSE. The blocking structure of the design will be indicated in the row names of the returned
 design. If TRUE, the design also will have extra columns to indicate the blocking structure. If no blocking is detected, no columns will be added.}
+
+\item{advancedoptions}{Default NULL. An named list for advanced users who want to adjust the optimal design algorithm parameters. Advanced option names
+are "design_search_tolerance" (the smallest fractional increase below which the design search terminates), "alias_tie_power" (the degree of the aliasing
+matrix when calculating optimality tie-breakers), "alias_tie_tolerance" (the smallest absolute difference in the optimality criterion where designs are
+considered equal before considering the aliasing structure), and "alias_compare" (which if set to FALSE turns off alias tie breaking completely).}
 
 \item{progressBarUpdater}{Default NULL. Function called in non-parallel optimal searches that can be used to update an external progress bar.}
 }
