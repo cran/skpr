@@ -6,7 +6,8 @@
 #'@param model Default NULL. If specified, it will override the default model used to generate/evaluate the design.
 #'@param customcolors A vector of colors for customizing the appearance of the colormap
 #'@param pow Default 2. The interaction level that the correlation map is showing.
-#'@return Plots design diagnostics
+#'@param custompar Default NULL. Custom parameters to pass to the `par` function for base R plotting.
+#'@return Silently returns the correlation matrix with the proper row and column names.
 #'@import graphics grDevices
 #'@export
 #'@examples
@@ -28,17 +29,20 @@
 #'#You can also pass in a custom color map.
 #'plot_correlations(cardesign,customcolors=c("blue","grey","red"))
 #'plot_correlations(cardesign,customcolors=c("blue","green","yellow","orange","red"))
-plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
+plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2, custompar = NULL) {
   #Remove skpr-generated REML blocking indicators if present
   if(!is.null(attr(genoutput,"splitanalyzable"))) {
     if(attr(genoutput,"splitanalyzable")) {
       allattr = attributes(genoutput)
-      genoutput = genoutput[,-1:-length(allattr$splitcolumns)]
+      genoutput = genoutput[,-1:-length(allattr$splitcolumns),drop=FALSE]
       allattr$names = allattr$names[-1:-length(allattr$splitcolumns)]
       attributes(genoutput) = allattr
     }
   }
-
+  if(is.null(attr(genoutput,"variance.matrix") )) {
+    genoutput = eval_design(genoutput,~.,0.2)
+  }
+  V = attr(genoutput,"variance.matrix")
   if(is.null(model)) {
     if(!is.null(attr(genoutput,"runmatrix"))) {
       variables = paste0("`",colnames(attr(genoutput,"runmatrix")),"`")
@@ -51,7 +55,6 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
     linearmodel = paste0(c("~",linearterms),collapse="")
     model = as.formula(paste(c(linearmodel,as.character(aliasmodel(as.formula(linearmodel),power=pow)[2])),collapse=" + "))
   }
-  V = attr(genoutput,"variance.matrix")
   if(!is.null(attr(genoutput,"runmatrix"))) {
     genoutput = attr(genoutput,"runmatrix")
   }
@@ -81,9 +84,12 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
   } else {
     imagecolors = colorRampPalette(customcolors)(101)
   }
-
-  par(mar=c(5,3,7,0))
-  image(t(cormat[ncol(cormat):1,]),x=1:ncol(cormat),y=1:ncol(cormat),zlim=c(0,1),asp=1,axes=F,
+  if(is.null(custompar)) {
+    par(mar=c(5,3,7,0))
+  } else {
+    do.call(par,custompar)
+  }
+  image(t(cormat[ncol(cormat):1,,drop=FALSE]),x=1:ncol(cormat),y=1:ncol(cormat),zlim=c(0,1),asp=1,axes=F,
         col=imagecolors,xlab="",ylab="")
   axis(3,at=1:ncol(cormat),labels=colnames(mm)[-1], pos=ncol(cormat)+1,las=2,hadj=0,cex.axis=0.8)
   axis(2,at=ncol(cormat):1, labels=colnames(mm)[-1], pos=0,las=2,hadj=1,cex.axis=0.8)
@@ -92,5 +98,10 @@ plot_correlations = function(genoutput,model=NULL,customcolors=NULL,pow=2) {
          c("0","","","","","0.5","","","","","1.0"), title="|r|\n",
          fill = imagecolors[c(seq(1,101,10))], xpd=TRUE,bty="n",border=NA,y.intersp=0.3,x.intersp=0.1,cex=1)
   par(mar=c(5.1, 4.1, 4.1, 2.1))
+
+  retval = t(cormat[ncol(cormat):1,,drop=FALSE])
+  colnames(retval) = rev(colnames(mm)[-1])
+  rownames(retval) = colnames(mm)[-1]
+  invisible(retval)
 
 }
