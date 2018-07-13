@@ -1,6 +1,6 @@
-2690a707488709bffcd354c240a46f31 *DESCRIPTION
+bb0c168a4ef175ebd297d15da73e9cd1 *DESCRIPTION
 b81210d0743ce820c8eb45bb5fd8b50e *NAMESPACE
-8f9f5b10f6c7a313c95a604f3509b322 *NEWS
+3fa1a0f3592bee21733cc1b44a429075 *NEWS
 29b035523c77c7ec44c12966bcd8fcc6 *R/RcppExports.R
 53e3b46de6ebe69ddcb4539f8f1fa6e8 *R/aliasmodel.R
 d7a5a12f5367944d8eb4bae7077e696d *R/anticoef_from_delta.R
@@ -90,11 +90,11 @@ d99773aac0fe73a7f8fb2b5b52b48e61 *src/calcAliasTrace.cpp
 58680f315ff695fc375f8b588d1208d0 *src/calculateDEfficiency.cpp
 8e3b218dbe141585737a31c26890005f *src/covarianceMatrix.cpp
 a45f2d9049b7cd8926807f72995fc7fd *src/covarianceMatrixPseudo.cpp
-951c0e92b8f0641ebf841aa82d9f4b85 *src/genOptimalDesign.cpp
+366464a8525387528e16680d6a44b507 *src/genOptimalDesign.cpp
 8cd216709dc2f746a7cfc1f441b9eac4 *src/genPseudoInverse.cpp
 f7de9cb303e764e67cb21709459f9c46 *tests/testthat.R
-4cea7ce9022ab0df4f6f63dbb21fbeef *tests/testthat/Rplots.pdf
+bfe0a86988237b6e88a19ea275f884f7 *tests/testthat/Rplots.pdf
 b42f6b76c45c78a4637346f05705eb6a *tests/testthat/testDeltaProcessing.R
-9ab6845965219ffb80605b2ebabbf557 *tests/testthat/testExampleCode.R
+535f7ff05dcd676287f5c2fb601c1674 *tests/testthat/testExampleCode.R
 71fb27378231d7c117a8d2865c8a3321 *tests/testthat/testExtractPvalues.R
 76cc1312b0bb51cf7248b9bf672fe8ff *tests/testthat/testPlottingFunctions.R
