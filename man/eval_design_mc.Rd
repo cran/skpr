@@ -5,9 +5,10 @@
 \title{Monte Carlo Power Evaluation for Experimental Designs}
 \usage{
 eval_design_mc(RunMatrix, model, alpha, blocking = FALSE, nsim = 1000,
-  glmfamily = "gaussian", varianceratios = NULL, rfunction = NULL,
-  anticoef = NULL, effectsize = 2, contrasts = contr.sum,
-  parallel = FALSE, detailedoutput = FALSE, advancedoptions = NULL)
+  glmfamily = "gaussian", calceffect = TRUE, varianceratios = NULL,
+  rfunction = NULL, anticoef = NULL, effectsize = 2,
+  contrasts = contr.sum, parallel = FALSE, detailedoutput = FALSE,
+  advancedoptions = NULL)
 }
 \arguments{
 \item{RunMatrix}{The run matrix of the design. Internally, \code{eval_design_mc} rescales each numeric column
@@ -26,7 +27,10 @@ factors that are not present in the run matrix.}
 \item{glmfamily}{String indicating the family of distribution for the glm function
 ("gaussian", "binomial", "poisson", or "exponential").}
 
-\item{varianceratios}{Default 1. The ratio of the whole plot variance to the run-to-run variance. For designs with more than one subplot
+\item{calceffect}{Default `TRUE`. Calculates effect power for a Type-III Anova (using the car package) using a Wald test.
+this ratio can be a vector specifying the variance ratio for each subplot. Otherwise, it will use a single value for all strata.}
+
+\item{varianceratios}{Default `1`. The ratio of the whole plot variance to the run-to-run variance. For designs with more than one subplot
 this ratio can be a vector specifying the variance ratio for each subplot. Otherwise, it will use a single value for all strata.}
 
 \item{rfunction}{Random number generator function for the response variable. Should be a function of the form f(X, b, delta), where X is the
@@ -46,7 +50,9 @@ for a categorical factor using the contrasts function, those will be used. Other
 
 \item{detailedoutput}{If TRUE, return additional information about evaluation in results.}
 
-\item{advancedoptions}{Default NULL. Named list of advanced options. `progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`GUI` toggles some warning messages when in the GUI.}
+\item{advancedoptions}{Default NULL. Named list of advanced options. `advancedoptions$anovatype` specifies the Anova type in the car package (default type `III`),
+user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
+`advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.}
 }
 \value{
 A data frame consisting of the parameters and their powers, with supplementary information
