@@ -4,13 +4,13 @@
 \alias{eval_design_custom_mc}
 \title{Monte Carlo power evaluation for experimental designs with user-supplied libraries}
 \usage{
-eval_design_custom_mc(RunMatrix, model, alpha, nsim, rfunction,
-  fitfunction, pvalfunction, anticoef, effectsize = 2,
-  contrasts = contr.sum, coef_function = coef, parameternames = NULL,
-  parallel = FALSE, parallelpackages = NULL)
+eval_design_custom_mc(design, model, alpha, nsim, rfunction, fitfunction,
+  pvalfunction, anticoef, effectsize = 2, contrasts = contr.sum,
+  coef_function = coef, parameternames = NULL, parallel = FALSE,
+  parallelpackages = NULL, ...)
 }
 \arguments{
-\item{RunMatrix}{The run matrix of the design. Internally, \code{eval_design_custom_mc} rescales each numeric column
+\item{design}{The experimental design. Internally, \code{eval_design_custom_mc} rescales each numeric column
 to the range [-1, 1].}
 
 \item{model}{The statistical model used to fit the data.}
@@ -48,6 +48,8 @@ for a categorical factor using the contrasts function, those will be used. Other
 \item{parallel}{If TRUE, uses all cores available to speed up computation of power. Default FALSE.}
 
 \item{parallelpackages}{A vector of strings listing the external packages to be input into the parallel package.}
+
+\item{...}{Additional arguments.}
 }
 \value{
 A data frame consisting of the parameters and their powers. The parameter estimates from the simulations are
@@ -99,7 +101,7 @@ pvalsurv = function(fit) {
 #And now we evaluate the design, passing the fitting function and p-value extracting function
 #in along with the standard inputs for eval_design_mc.
 
-d = eval_design_custom_mc(RunMatrix = design, model = ~a,
+d = eval_design_custom_mc(design = design, model = ~a,
                          alpha = 0.05, nsim = 100,
                          fitfunction = fitsurv, pvalfunction = pvalsurv,
                          rfunction = rsurvival, effectsize = 1)

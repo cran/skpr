@@ -1,16 +1,16 @@
 #'@title Monte Carlo Power Evaluation for Experimental Designs
 #'
-#'@description Evaluates the power of an experimental design, given its run matrix and the
+#'@description Evaluates the power of an experimental design, given the run matrix and the
 #'statistical model to be fit to the data, using monte carlo simulation. Simulated data is fit using a
 #'generalized linear model
 #'and power is estimated by the fraction of times a parameter is significant.
 #'Returns a data frame of parameter powers.
 #'
-#'@param RunMatrix The run matrix of the design. Internally, \code{eval_design_mc} rescales each numeric column
+#'@param design The experimental design. Internally, \code{eval_design_mc} rescales each numeric column
 #'to the range [-1, 1].
 #'@param model The model used in evaluating the design. It can be a subset of the model used to
 #'generate the design, or include higher order effects not in the original design generation. It cannot include
-#'factors that are not present in the run matrix.
+#'factors that are not present in the experimental design.
 #'@param alpha The type-I error. p-values less than this will be counted as significant.
 #'@param blocking If TRUE, \code{eval_design_mc} will look at the rownames to determine blocking structure. Default FALSE.
 #'@param nsim The number of simulations to perform.
@@ -34,6 +34,7 @@
 #'@param advancedoptions Default NULL. Named list of advanced options. `advancedoptions$anovatype` specifies the Anova type in the car package (default type `III`),
 #'user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
 #'`advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.
+#'@param ... Additional arguments.
 #'@return A data frame consisting of the parameters and their powers, with supplementary information
 #'stored in the data frame's attributes. The parameter estimates from the simulations are stored in the "estimates"
 #' attribute. The "modelmatrix" attribute contains the model matrix that was used for power evaluation, and
@@ -114,7 +115,7 @@
 #'#To evaluate this design using a normal approximation, we just use eval_design
 #'#(here using the default settings for contrasts, effectsize, and the anticipated coefficients):
 #'
-#'eval_design(RunMatrix = designcoffee, model = ~cost + type + size, 0.05)
+#'eval_design(design = designcoffee, model = ~cost + type + size, 0.05)
 #'
 #'#To evaluate this design with a Monte Carlo method, we enter the same information
 #'#used in eval_design, with the addition of the number of simulations "nsim" and the distribution
@@ -130,22 +131,22 @@
 #'#using the normal approximation in eval_design. Like eval_design, we can also change
 #'#effectsize to produce a different signal-to-noise ratio:
 #'
-#'\dontrun{eval_design_mc(RunMatrix = designcoffee, model = ~cost + type + size, alpha = 0.05,
+#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type + size, alpha = 0.05,
 #'               nsim = 100, glmfamily = "gaussian", effectsize = 1)}
 #'
 #'#Like eval_design, we can also evaluate the design with a different model than
 #'#the one that generated the design.
-#'\dontrun{eval_design_mc(RunMatrix = designcoffee, model = ~cost + type, alpha = 0.05,
+#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type, alpha = 0.05,
 #'               nsim = 100, glmfamily = "gaussian")}
 #'
 #'
 #'#And here it is evaluated with interactions included:
-#'\dontrun{eval_design_mc(RunMatrix = designcoffee, model = ~cost + type + size + cost * type, 0.05,
+#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type + size + cost * type, 0.05,
 #'               nsim = 100, glmfamily = "gaussian")}
 #'
 #'#We can also set "parallel = TRUE" to use all the cores available to speed up
 #'#computation.
-#'\dontrun{eval_design_mc(RunMatrix = designcoffee, model = ~cost + type + size, 0.05,
+#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type + size, 0.05,
 #'               nsim = 10000, glmfamily = "gaussian", parallel = TRUE)}
 #'
 #'#We can also evaluate split-plot designs. First, let us generate the split-plot design:
@@ -201,13 +202,16 @@
 #'#when all inputs = 0 -- to 0.2 (from the intercept), and say that each factor
 #'#changes this count by a factor of 4 (multiplied by 2 when x= +1, and divided by 2 when x = -1).
 #'#Note the use of log() in the anticipated coefficients.
-eval_design_mc = function(RunMatrix, model, alpha,
+eval_design_mc = function(design, model, alpha,
                           blocking = FALSE, nsim = 1000, glmfamily = "gaussian", calceffect = TRUE,
                           varianceratios = NULL, rfunction = NULL, anticoef = NULL,
                           effectsize = 2, contrasts = contr.sum, parallel = FALSE,
-                          detailedoutput = FALSE, advancedoptions = NULL) {
-
-  if (class(RunMatrix) %in% c("tbl", "tbl_df") && blocking) {
+                          detailedoutput = FALSE, advancedoptions = NULL, ...) {
+  args = list(...)
+  if("RunMatrix" %in% names(args)) {
+    stop("RunMatrix argument deprecated. Use `design` instead.")
+  }
+  if (class(design) %in% c("tbl", "tbl_df") && blocking) {
     warning("Tibbles strip out rownames, which encode blocking information. Use data frames if the design has a split plot structure. Converting input to data frame")
   }
 
@@ -228,82 +232,26 @@ eval_design_mc = function(RunMatrix, model, alpha,
 
   #detect pre-set contrasts
   presetcontrasts = list()
-  for (x in names(RunMatrix[lapply(RunMatrix, class) %in% c("character", "factor")])) {
-    if (!is.null(attr(RunMatrix[[x]], "contrasts"))) {
-      presetcontrasts[[x]] = attr(RunMatrix[[x]], "contrasts")
+  for (x in names(design[lapply(design, class) %in% c("character", "factor")])) {
+    if (!is.null(attr(design[[x]], "contrasts"))) {
+      presetcontrasts[[x]] = attr(design[[x]], "contrasts")
     }
   }
 
   #covert tibbles
-  RunMatrix = as.data.frame(RunMatrix)
+  run_matrix_processed = as.data.frame(design)
 
   #Detect externally generated blocking columns and convert to rownames
-  if (is.null(attr(RunMatrix, "splitanalyzable")) &&
-     any(grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE)) ||
-     any(grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE))) {
-    blockcols = grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE) | grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE)
-    if (blocking) {
-      warning("Detected externally generated blocking columns: attempting to interpret blocking structure.")
-      blockmatrix = RunMatrix[, blockcols, drop = FALSE]
-      blockmatrix = blockmatrix[, order(unlist(lapply(lapply(blockmatrix, unique), length))), drop = FALSE]
-      blockvals = lapply(blockmatrix, unique)
-      rownamematrix = matrix(nrow = nrow(RunMatrix), ncol = ncol(blockmatrix) + 1)
-      for (col in 1:ncol(blockmatrix)) {
-        uniquevals = blockvals[[col]]
-        blockcounter = 1
-        for (block in uniquevals) {
-          if (col == 1) {
-            rownamematrix[blockmatrix[, col] == block, col] = blockcounter
-            blockcounter = blockcounter + 1
-          }
-          if (col != 1) {
-            superblock = rownamematrix[blockmatrix[, col] == block, col - 1][1]
-            modop = length(unique(blockmatrix[blockmatrix[, col - 1] == superblock, col]))
-            if (blockcounter %% modop == 0) {
-              rownamematrix[blockmatrix[, col] == block, col] = modop
-            } else {
-              rownamematrix[blockmatrix[, col] == block, col] = blockcounter %% modop
-            }
-            blockcounter = blockcounter + 1
-          }
-          if (col == ncol(blockmatrix)) {
-            rownamematrix[blockmatrix[, col] == block, col + 1] = 1:sum(blockmatrix[, col] == block)
-          }
-        }
-        blockcounter = blockcounter + 1
-      }
-      allattr = attributes(RunMatrix)
-      allattr$names = allattr$names[!blockcols]
-      RunMatrix = RunMatrix[, !blockcols, drop = FALSE]
-      attributes(RunMatrix) = allattr
-      rownames(RunMatrix) = apply(rownamematrix, 1, paste, collapse = ".")
-    } else {
-      warning("Detected externally generated blocking columns but blocking not turned on: ignoring blocking structure and removing blocking columns.")
-      allattr = attributes(RunMatrix)
-      allattr$names = allattr$names[!blockcols]
-      RunMatrix = RunMatrix[, !blockcols, drop = FALSE]
-      attributes(RunMatrix) = allattr
-    }
-  }
+  run_matrix_processed = convert_blockcolumn_rownames(run_matrix_processed, blocking)
 
   #Remove skpr-generated REML blocking indicators if present
-  if (!is.null(attr(RunMatrix, "splitanalyzable"))) {
-    if (attr(RunMatrix, "splitanalyzable")) {
-      allattr = attributes(RunMatrix)
-      RunMatrix = RunMatrix[, -1:-length(allattr$splitcolumns)]
-      allattr$names = allattr$names[-1:-length(allattr$splitcolumns)]
-      attributes(RunMatrix) = allattr
-    }
-  }
+  run_matrix_processed = remove_skpr_blockcols(run_matrix_processed)
 
   #----- Convert dots in formula to terms -----#
-  if (any(unlist(strsplit(as.character(model[2]), "\\s\\+\\s|\\s\\*\\s|\\:")) == ".")) {
-    dotreplace = paste0("(", paste0(colnames(RunMatrix), collapse = " + "), ")")
-    additionterms = unlist(strsplit(as.character(model[2]), "\\s\\+\\s"))
-    multiplyterms = unlist(lapply(lapply(strsplit(additionterms, split = "\\s\\*\\s"), gsub, pattern = "^\\.$", replacement = dotreplace), paste0, collapse = " * "))
-    interactionterms = unlist(lapply(lapply(strsplit(multiplyterms, split = "\\:"), gsub, pattern = "^\\.$", replacement = dotreplace), paste0, collapse = ":"))
-    model = as.formula(paste0("~", paste(interactionterms, collapse = " + "), sep = ""))
-  }
+  model = convert_model_dots(run_matrix_processed,model)
+
+  #----- Rearrange formula terms by order -----#
+  model = rearrange_formula_by_order(model)
 
   glmfamilyname = glmfamily
 
@@ -325,17 +273,12 @@ eval_design_mc = function(RunMatrix, model, alpha,
   }
 
   #------Normalize/Center numeric columns ------#
-  for (column in 1:ncol(RunMatrix)) {
-    if (is.numeric(RunMatrix[, column])) {
-      midvalue = mean(c(max(RunMatrix[, column]), min(RunMatrix[, column])))
-      RunMatrix[, column] = (RunMatrix[, column] - midvalue) / (max(RunMatrix[, column]) - midvalue)
-    }
-  }
+  run_matrix_processed = normalize_numeric_runmatrix(run_matrix_processed)
 
   #---------- Generating model matrix ----------#
   #Remove columns from variables not used in the model
   #Variables used later: contrastslist, contrastslist_cormat
-  RunMatrixReduced = reduceRunMatrix(RunMatrix, model)
+  RunMatrixReduced = reduceRunMatrix(run_matrix_processed, model)
 
   contrastslist_cormat = list()
   contrastslist = list()
@@ -363,10 +306,12 @@ eval_design_mc = function(RunMatrix, model, alpha,
 
   #-----Autogenerate Anticipated Coefficients---#
   #Variables used later: anticoef
-  if (!missing(anticoef) && !missing(effectsize)) {
-    warning("User defined anticipated coefficients (anticoef) detected; ignoring effectsize argument.")
+  if (!missing(effectsize)) {
+    if(!is.null(anticoef)) {
+      warning("User defined anticipated coefficients (anticoef) detected; ignoring effectsize argument.")
+    }
   }
-  if (missing(anticoef)) {
+  if (missing(anticoef) || is.null(anticoef)) {
     default_coef = gen_anticoef(RunMatrixReduced, model)
     anticoef = anticoef_from_delta(default_coef, effectsize, glmfamilyname)
     if (!("(Intercept)" %in% colnames(ModelMatrix))) {
@@ -379,7 +324,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
 
   #-------------- Blocking errors --------------#
   #Variables used later: blockgroups, varianceratios, V
-  blocknames = rownames(RunMatrix)
+  blocknames = rownames(run_matrix_processed)
   blocklist = strsplit(blocknames, ".", fixed = TRUE)
 
   if (any(lapply(blocklist, length) > 1)) {
@@ -389,7 +334,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
       blockgroups = apply(blockstructure, 2, blockingstructure)
 
 
-      blockMatrixSize = nrow(RunMatrix)
+      blockMatrixSize = nrow(run_matrix_processed)
       V = diag(blockMatrixSize)
 
       if (!is.null(varianceratios) && max(unlist(lapply(blocklist, length))) - 1 != length(varianceratios) && length(varianceratios) != 1) {
@@ -423,26 +368,12 @@ eval_design_mc = function(RunMatrix, model, alpha,
     }
   }
 
-  rblocknoise = function(noise, groups) {
-    listblocknoise = list()
-    for (i in 1:(length(groups) - 1)) {
-      blocktemp = list()
-      for (j in 1:length(groups[[i]])) {
-        row = rnorm(n = 1, mean = 0, sd = sqrt(noise[i]))
-        blocktemp[[j]] = do.call(rbind, replicate(groups[[i]][j], row, simplify = FALSE))
-      }
-      listblocknoise[[i]] = do.call(rbind, blocktemp)
-    }
-    totalblocknoise = Reduce("+", listblocknoise)
-    return(totalblocknoise)
-  }
-
   #------------ Generate Responses -------------#
   #Variables used later: responses
   responses = matrix(ncol = nsim, nrow = nrow(ModelMatrix))
   if (blocking) {
     for (i in 1:nsim) {
-      responses[, i] = rfunction(ModelMatrix, anticoef, rblocknoise(noise = varianceratios, groups = blockgroups))
+      responses[, i] = rfunction(ModelMatrix, anticoef, generate_noise_block(noise = varianceratios, groups = blockgroups))
     }
   } else {
     responses = replicate(nsim, rfunction(ModelMatrix, anticoef, rep(0, nrow(ModelMatrix))))
@@ -463,7 +394,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
     #Adding random block variables to formula
     model = update.formula(model, blockform)
   } else {
-    V = diag(nrow(RunMatrix))
+    V = diag(nrow(run_matrix_processed))
   }
 
   model_formula = update.formula(model, Y ~ .)
@@ -699,7 +630,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
     } else { #user supplied a glm family object
       retval$glmfamily = paste(glmfamilyname, collapse = " ")
     }
-    retval$trials = nrow(RunMatrix)
+    retval$trials = nrow(run_matrix_processed)
     retval$nsim = nsim
     retval$blocking = blocking
   }
@@ -721,6 +652,7 @@ eval_design_mc = function(RunMatrix, model, alpha,
   attr(retval, "pvals") = attr(power_values, "pvals")
   attr(retval, "stderrors") = attr(power_values, "stderrors")
   attr(retval, "fisheriterations") = attr(power_values, "fisheriterations")
+
   return(retval)
 }
 globalVariables("i")

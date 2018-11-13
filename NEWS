@@ -1,7 +1,28 @@
-﻿skpr v0.54.3 (Release date: 2018-09-21):
+﻿skpr v0.57.0 (Release date: 2018-09-21):
 ================
 
-• Split-plot design generation bugfixes
+Major changes:
+
+• Changed "RunMatrix" argument to "design" in evaluation functions. 
+ 
+Minor Changes/Bug fixes
+
+• Fixed bug with model ordering when augmenting an existing design
+
+• Reduce replication in code and improve documentation 
+
+skpr v0.56.1 (Release date: 2018-09-21):
+================
+
+Major changes:
+
+• Major code clean-up to standardize style and spacing within code
+
+• `magrittr` pipe %>% now imported by default
+
+Minor changes/Bug fixes:
+
+• Split-plot design generation bugfixes for interactions between whole and subplots
 
 skpr v0.54.3 (Release date: 2018-08-08):
 ================
