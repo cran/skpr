@@ -46,8 +46,9 @@
 #'@param advancedoptions Default NULL. An named list for advanced users who want to adjust the optimal design algorithm parameters. Advanced option names
 #'are "design_search_tolerance" (the smallest fractional increase below which the design search terminates), "alias_tie_power" (the degree of the aliasing
 #'matrix when calculating optimality tie-breakers), "alias_tie_tolerance" (the smallest absolute difference in the optimality criterion where designs are
-#'considered equal before considering the aliasing structure),  "alias_compare" (which if set to FALSE turns off alias tie breaking completely), and "progressBarUpdater"
-#' (a function called in non-parallel optimal searches that can be used to update an external progress bar).
+#'considered equal before considering the aliasing structure),  "alias_compare" (which if set to FALSE turns off alias tie breaking completely),
+#'"aliasmodel" (provided if the user does not want to calculate Alias-optimality using all `aliaspower` interaction terms),
+#'and "progressBarUpdater" (a function called in non-parallel optimal searches that can be used to update an external progress bar).
 #'@return A data frame containing the run matrix for the optimal design. The returned data frame contains supplementary
 #'information in its attributes, which can be accessed with the attr function.
 #'@import doRNG
@@ -288,6 +289,11 @@ gen_design = function(candidateset, model, trials,
     } else {
       progressBarUpdater = NULL
     }
+     if (!is.null(advancedoptions$aliasmodel)) {
+      amodel = advancedoptions$aliasmodel
+    } else {
+      amodel = NULL
+    }
   } else {
     advancedoptions = list()
     advancedoptions$GUI = FALSE
@@ -357,7 +363,7 @@ gen_design = function(candidateset, model, trials,
       contrastslistsubplot[[x]] = contrast
     }
 
-    if (length(contrastslistspd) == 0) {
+    if (length(contrastslistsubplot) == 0) {
       contrastslistsubplot = NULL
     }
 
@@ -401,7 +407,7 @@ gen_design = function(candidateset, model, trials,
         # Optimal design generation process.
         lineartermsinteraction = unique(unlist(strsplit(wholeinteractionterms, split = "(\\s\\*\\s)|(:)", perl = TRUE)))
         extract_intnames_formula = as.formula(paste0("~", paste(c(lineartermsinteraction, splitterms[!regularmodel], wholeinteractionterms), collapse = " + ")))
-        combinedcand = cbind(candidateset[1,, drop = FALSE], splitplotdesign[1,, drop = FALSE])
+        combinedcand = cbind(candidateset[1, , drop = FALSE], splitplotdesign[1, , drop = FALSE])
         allcolnames = suppressWarnings(colnames(model.matrix(extract_intnames_formula, data = combinedcand, contrasts.arg = fullcontrastlist)))
         interactionnames = allcolnames[grepl("(\\s\\*\\s)|(:)", allcolnames, perl = TRUE)]
 
@@ -421,7 +427,7 @@ gen_design = function(candidateset, model, trials,
 
         for (interaction_col in interactionnames) {
           term_vals = unlist(strsplit(interaction_col, split = "(\\s\\*\\s)|(:)", perl = TRUE))
-          if(any(term_vals %in% submm)) {
+          if (any(term_vals %in% submm)) {
             interactionlist[[interactioncounter]] = which(correct_order_colnames %in% term_vals)
             interactioncounter = interactioncounter + 1
           }
@@ -486,7 +492,7 @@ gen_design = function(candidateset, model, trials,
     if (nrow(augmentdesign) >= trials) {
       stop("Total number of trials must exceed the number of runs in augmented design.")
     }
-    augmentdesign = augmentdesign[,colnames(candidateset)]
+    augmentdesign = augmentdesign[, colnames(candidateset)]
     #Check and make sure factor levels are equal
     for (i in 1:ncol(augmentdesign)) {
       if (is.character(augmentdesign[, i]) || is.factor(augmentdesign[, i])) {
@@ -506,11 +512,7 @@ gen_design = function(candidateset, model, trials,
   #-----generate blocked design with replicates-----#
   if (!is.null(splitplotdesign)) {
     if (!is.null(attr(splitplotdesign, "varianceratios"))) {
-      if (!is.null(attr(splitplotdesign, "varianceratios"))) {
-        varianceRatios = c(attr(splitplotdesign, "varianceratios"), varianceratio)
-      } else {
-        varianceRatios = varianceratio
-      }
+      varianceRatios = c(attr(splitplotdesign, "varianceratios"), varianceratio)
     } else {
       varianceRatios = varianceratio
     }
@@ -577,8 +579,13 @@ gen_design = function(candidateset, model, trials,
       rownames(splitPlotReplicateDesign) = paste(blockIndicators, blockRuns, sep = ".")
     }
     blockMatrixSize = sum(splitplotsizes)
-    V = diag(blockMatrixSize) * varianceRatios[1]
-    blockcounter = 2
+    if(length(varianceRatios) > 1) {
+      V = diag(blockMatrixSize) * varianceRatios[1]
+      blockcounter = 2
+    } else {
+      V = diag(blockMatrixSize)
+      blockcounter = 1
+    }
     for (block in blockgroups) {
       V[1:block[1], 1:block[1]] =  V[1:block[1], 1:block[1]] + varianceRatios[blockcounter]
       placeholder = block[1]
@@ -587,6 +594,18 @@ gen_design = function(candidateset, model, trials,
         placeholder = placeholder + block[i]
       }
       blockcounter = blockcounter + 1
+    }
+    zlist = list()
+    for (i in seq_along(1:length(blockgroups))) {
+      tempblocks = blockgroups[[i]]
+      tempnumberblocks = length(tempblocks)
+      ztemp = matrix(0, nrow = trials, ncol = tempnumberblocks)
+      currentrow = 1
+      for (j in 1:tempnumberblocks) {
+        ztemp[currentrow:(currentrow + tempblocks[j] - 1), j] = varianceRatios[i]
+        currentrow = currentrow + tempblocks[j]
+      }
+      zlist[[i]] = ztemp
     }
   }
 
@@ -627,12 +646,13 @@ gen_design = function(candidateset, model, trials,
     }
   }
 
-  if (is.null(splitplotdesign)) {
-    amodel = aliasmodel(model, aliaspower)
-  } else {
-    amodel = aliasmodel(modelnowholeformula, aliaspower)
+  if (is.null(amodel)) {
+   if (is.null(splitplotdesign)) {
+     amodel = aliasmodel(model, aliaspower)
+   } else {
+     amodel = aliasmodel(modelnowholeformula, aliaspower)
+   }
   }
-
   if (model == amodel && optimality == "ALIAS") {
     stop(paste0(c("Alias optimal selected, but full model specified with no aliasing at current aliaspower: ",
                   aliaspower, ". Try setting aliaspower = ", aliaspower + 1), collapse = ""))
@@ -1069,6 +1089,7 @@ gen_design = function(candidateset, model, trials,
     attr(design, "moments.matrix") = blockedmm
     attr(design, "V") = V
     attr(design, "varianceratios") = varianceRatios
+    attr(design, "z.matrix.list") = zlist
     finallist = list()
     counterfinallist = 1
     for (row in 1:nrow(splitplotdesign)) {
@@ -1167,7 +1188,7 @@ gen_design = function(candidateset, model, trials,
 
   if (!randomized) {
     allattr = attributes(design)
-    design = design[do.call(order, design),, drop = FALSE]
+    design = design[do.call(order, design), , drop = FALSE]
     attributes(design) = allattr
   }
 

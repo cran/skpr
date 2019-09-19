@@ -114,7 +114,7 @@ eval_design_survival_mc = function(design, model, alpha,
                                    rfunctionsurv = NULL, anticoef = NULL, effectsize = 2, contrasts = contr.sum,
                                    parallel = FALSE, detailedoutput = FALSE, advancedoptions = NULL, ...) {
   args = list(...)
-  if("RunMatrix" %in% names(args)) {
+  if ("RunMatrix" %in% names(args)) {
     stop("RunMatrix argument deprecated. Use `design` instead.")
   }
   #detect pre-set contrasts
@@ -139,6 +139,11 @@ eval_design_survival_mc = function(design, model, alpha,
     advancedoptions$GUI = FALSE
     progressBarUpdater = NULL
   }
+  if (attr(terms.formula(model, data = design), "intercept") == 1) {
+    nointercept = FALSE
+  } else {
+    nointercept = TRUE
+  }
 
   #Remove skpr-generated REML blocking indicators if present
   run_matrix_processed = remove_skpr_blockcols(design)
@@ -147,7 +152,7 @@ eval_design_survival_mc = function(design, model, alpha,
   run_matrix_processed = as.data.frame(run_matrix_processed)
 
   #----- Convert dots in formula to terms -----#
-  model = convert_model_dots(run_matrix_processed,model)
+  model = convert_model_dots(run_matrix_processed, model)
 
   #----- Rearrange formula terms by order -----#
   model = rearrange_formula_by_order(model)
@@ -219,7 +224,7 @@ eval_design_survival_mc = function(design, model, alpha,
     warning("User defined anticipated coefficients (anticoef) detected; ignoring effectsize argument.")
   }
   if (missing(anticoef)) {
-    default_coef = gen_anticoef(RunMatrixReduced, model)
+    default_coef = gen_anticoef(RunMatrixReduced, model, nointercept)
     anticoef = anticoef_from_delta_surv(default_coef, effectsize, distribution)
     if (!("(Intercept)" %in% colnames(ModelMatrix))) {
       anticoef = anticoef[-1]
@@ -271,7 +276,7 @@ eval_design_survival_mc = function(design, model, alpha,
       estimates[j, ] = coef(fit)
     }
     power_values = power_values / nsim
-    pvals = do.call(rbind,pvallist)
+    pvals = do.call(rbind, pvallist)
 
   } else {
     if (is.null(options("cores")[[1]])) {
@@ -282,29 +287,32 @@ eval_design_survival_mc = function(design, model, alpha,
     cl = parallel::makeCluster(numbercores)
     doParallel::registerDoParallel(cl, cores = numbercores)
 
-    power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .export = ("extractPvalues"), .packages = c("survival")) %dopar% {
-      power_values = rep(0, ncol(ModelMatrix))
-      #simulate the data.
+    tryCatch({
+      power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .export = ("extractPvalues"), .packages = c("survival")) %dopar% {
+        power_values = rep(0, ncol(ModelMatrix))
+        #simulate the data.
 
-      anticoef_adjusted = anticoef
+        anticoef_adjusted = anticoef
 
-      RunMatrixReduced$Y = rfunctionsurv(ModelMatrix, anticoef_adjusted)
+        RunMatrixReduced$Y = rfunctionsurv(ModelMatrix, anticoef_adjusted)
 
-      model_formula = update.formula(model, Y ~ .)
+        model_formula = update.formula(model, Y ~ .)
 
-      #fit a model to the simulated data.
-      fit = survival::survreg(model_formula, data = RunMatrixReduced, dist = distribution, ...)
+        #fit a model to the simulated data.
+        fit = survival::survreg(model_formula, data = RunMatrixReduced, dist = distribution, ...)
 
-      #determine whether beta[i] is significant. If so, increment nsignificant
-      pvals = extractPvalues(fit)[1:ncol(ModelMatrix)]
-      power_values[pvals < alpha] = 1
-      estimates = coef(fit)
-      list("parameterpower" = power_values, "estimates" = estimates, "pvals" = pvals)
-    }
-    parallel::stopCluster(cl)
-    power_values = apply(do.call(rbind,power_estimates[, "parameterpower"]), 2, sum) / nsim
+        #determine whether beta[i] is significant. If so, increment nsignificant
+        pvals = extractPvalues(fit)[1:ncol(ModelMatrix)]
+        power_values[pvals < alpha] = 1
+        estimates = coef(fit)
+        list("parameterpower" = power_values, "estimates" = estimates, "pvals" = pvals)
+      }
+    }, finally  = {
+      parallel::stopCluster(cl)
+    })
+    power_values = apply(do.call(rbind, power_estimates[, "parameterpower"]), 2, sum) / nsim
     pvals = do.call(rbind, power_estimates[, "pvals"])
-    estimates = do.call(rbind,power_estimates[, "estimates"])
+    estimates = do.call(rbind, power_estimates[, "estimates"])
   }
   #output the results (tidy data format)
   retval = data.frame(parameter = parameter_names,

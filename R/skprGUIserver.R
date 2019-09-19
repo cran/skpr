@@ -8,9 +8,8 @@
 #'@import future promises shiny rintrojs shinythemes knitr kableExtra
 #'@export
 #'@examples
-#'#Type skprGUIserver() to begin
+#'#Type `skprGUIserver()` to begin
 #'
-#'\dontrun{skprGUIserver()}
 # nocov start
 skprGUIserver = function(inputValue1, inputValue2) {
   panelstyle = "background-color: rgba(86, 96, 133, 0.3);
@@ -1527,7 +1526,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
                          "<code style=\"color:#468449\">#design$Y = results <br><br></code>",
                          ifelse(!isblockingtext(),
                                 "<code style=\"color:#468449\">## Now analyze the linear model with lm:</code><br><br>",
-                                "<code style=\"color:#468449\">## Now analyze the blocked linear model with lmer (from the lme4 package):<br><br></code>"),
+                                "<code style=\"color:#468449\">## Now analyze the blocked linear model with lmer (from the lme4 package) and lmerTest:<br><br></code>"),
                          ifelse(!isblockingtext(),
                                 paste0("<code style=\"color:#468449\">#lm(formula = Y ", regularmodelstring(),
                                        ", data = design",
@@ -1535,7 +1534,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
                                               paste0(", </code><br><code style=\"color:#468449\">#   ", "contrasts = ", contraststring(), ")</code>"),
                                               ")<br><br></code>")),
                                 paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument splitcolumns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
-                                  "<code style=\"color:#468449\">#lme4::lmer(formula = Y ",
+                                  "<code style=\"color:#468449\">#library(lmerTest)<br>#lme4::lmer(formula = Y ",
                                   modelwithblocks(),
                                   ", data = design",
                                   ifelse(anyfactors(), paste0(", <br>#          ", "contrasts = ", contraststring(), "))<br><br>"), "))<br><br></code>"))))
@@ -1833,7 +1832,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
             if (ncol(runmat) > 1) {
               runmatrixprocessed = lapply(runmat, spec_color_if)
               prelimhtml = kable_styling(knitr::kable(as.data.frame(runmatrixprocessed)[do.call(order, runmat), ], "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-              gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\);)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
+              gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
             } else {
               rownumbers = order(runmat[, 1])
               runreturn = list(runmat[order(runmat[, 1]), ])
@@ -1842,12 +1841,12 @@ skprGUIserver = function(inputValue1, inputValue2) {
               runmatrixprocessed = as.data.frame(lapply(runmatrixprocessed, spec_color_if))
               rownames(runmatrixprocessed) = rownumbers
               prelimhtml = kable_styling(knitr::kable(runmatrixprocessed, "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-              gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\);)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
+              gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
             }
           } else {
             runmatrixprocessed = lapply(runmat, spec_color_if)
             prelimhtml = kable_styling(knitr::kable(as.data.frame(runmatrixprocessed), "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-            gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\);)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
+            gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
           }
         } else {
           if (input$orderdesign) {

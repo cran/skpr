@@ -6,7 +6,8 @@
 \usage{
 eval_design(design, model, alpha, blocking = FALSE, anticoef = NULL,
   effectsize = 2, varianceratios = 1, contrasts = contr.sum,
-  conservative = FALSE, detailedoutput = FALSE, ...)
+  conservative = FALSE, reorder_factors = FALSE,
+  detailedoutput = FALSE, ...)
 }
 \arguments{
 \item{design}{The experimental design. Internally, \code{eval_design} rescales each numeric column
@@ -18,12 +19,12 @@ factors that are not present in the experimental design.}
 
 \item{alpha}{The specified type-I error.}
 
-\item{blocking}{Default FALSE. If TRUE, \code{eval_design} will look at the rownames to determine blocking structure.}
+\item{blocking}{Default `FALSE`. If `TRUE``, \code{eval_design} will look at the rownames to determine blocking structure.}
 
 \item{anticoef}{The anticipated coefficients for calculating the power. If missing, coefficients
 will be automatically generated based on the \code{effectsize} argument.}
 
-\item{effectsize}{The signal-to-noise ratio. Default 2. For continuous factors, this specifies the
+\item{effectsize}{The signal-to-noise ratio. Default `2`. For continuous factors, this specifies the
 difference in response between the highest and lowest levels of the factor (which are -1 and +1 after \code{eval_design}
 normalizes the input data), assuming that the root mean square error is 1. If you do not specify \code{anticoef},
 the anticipated coefficients will be half of \code{effectsize}. If you do specify \code{anticoef}, \code{effectsize} will be ignored.}
@@ -35,11 +36,15 @@ this ratio can be a vector specifying the variance ratio for each subplot. Other
 for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.}
 
 \item{conservative}{Specifies whether default method for generating
-anticipated coefficents should be conservative or not. TRUE will give the most conservative
-estimate of power by setting all but one level in each categorical factor's anticipated coefficients
-to zero. Default FALSE.}
+anticipated coefficents should be conservative or not. `TRUE` will give the most conservative
+estimate of power by setting all but one (or multiple if they are equally low) level in each categorical factor's anticipated coefficients
+to zero. Default `FALSE`.}
 
-\item{detailedoutput}{If TRUE, return additional information about evaluation in results. Default FALSE.}
+\item{reorder_factors}{Default `FALSE`. If `TRUE`, the levels will be reordered to generate the most conservative calculation of effect power.
+The function searches through all possible reference levels for a given factor and chooses the one that results in the lowest effect power.
+The reordering will be presenting in the output when `detailedoutput = TRUE`.}
+
+\item{detailedoutput}{If `TRUE``, return additional information about evaluation in results. Default FALSE.}
 
 \item{...}{Additional arguments.}
 }
@@ -62,25 +67,37 @@ assumes a signal-to-noise ratio of 2, but this can be changed with the
 \details{
 This function evaluates the power of experimental designs.
 
-Power is calculated under a linear regression framework: you intend to fit a
-linear model to the data, of the form
+If the design is has no blocking or restrictions on randomization, the model assumed is:
 
-\eqn{y = X \beta + \epsilon}, (plus blocking terms, if applicable)
+\eqn{y = X \beta + \epsilon}.
 
-where \eqn{y} is the vector of experimental responses, \eqn{X} is the model matrix, \eqn{\beta} is
-the vector of model coefficients, and \eqn{\epsilon} is the statistical noise. \code{eval_design}
-assumes that \eqn{\epsilon} is
-normally distributed with zero mean and unit variance (root-mean-square error is 1), and
-calculates both parameter power and effect power.
-Parameter power is the probability of rejecting the hypothesis \eqn{\beta_i = 0}, where \eqn{\beta_i} is a single parameter
-in the model,
-while effect power is the probability of rejecting the hypothesis \eqn{\beta_{i} = 0}, where \eqn{\beta_{i}} is the set of all
-parameters associated with the effect in question. The two powers are equivalent for continuous factors and
-two-level categorical factors, but they can be different for categorical factors with three or more levels.
+If the design is a split-plot design, the model is as follows:
 
-When using \code{conservative = TRUE}, \code{eval_design} first evaluates the power with default coefficients. Then,
+\ifelse{html}{\eqn{y = X \beta + Z b}\out{<sub>i</sub>} + \eqn{\epsilon}\out{<sub>ij</sub>}}{\eqn{y = X \beta + Z b_{i} + \epsilon_{ij}}},
+
+Here, \eqn{y} is the vector of experimental responses, \eqn{X} is the model matrix, \eqn{\beta} is
+the vector of model coefficients, \eqn{Z_{i}} are the blocking indicator,
+\eqn{b_{i}} is the random variable associated with the \eqn{i}th block, and \eqn{\epsilon}
+is a random variable normally distributed with zero mean and unit variance (root-mean-square error is 1.0).
+
+\code{eval_design} calculates both parameter power as well as effect power, defined as follows:
+
+1) Parameter power is the probability of rejecting the hypothesis \eqn{H_0 : \beta_i = 0}, where \eqn{\beta_i} is a single parameter
+in the model
+2) Effect power is the probability of rejecting the hypothesis \eqn{H_0 : \beta_{1} = \beta_{2} = ... = \beta_{n} 0} for all \eqn{n} coefficients
+for a categorical factor.
+
+The two power types are equivalent for continuous factors and two-level categorical factors,
+but they will differ for categorical factors with three or more levels.
+
+For split-plot designs, the degrees of freedom are allocated to each term according to the algorithm
+given in "Mixed-Effects Models in S and S-PLUS" (Pinheiro and Bates, pp. 91).
+
+When using \code{conservative = TRUE}, \code{eval_design} first evaluates the power with the default (or given) coefficients. Then,
 for each multi-level categorical, it sets all coefficients to zero except the level that produced the lowest power,
-and then re-evaluates the power with this modified set of anticipated coefficients.
+and then re-evaluates the power with this modified set of anticipated coefficients. If there are two or more
+equal power values in a multi-level categorical, two of the lowest equal terms are given opposite sign anticipated coefficients
+and the rest (for that categorical factor) are set to zero.
 }
 \examples{
 #Generating a simple 2x3 factorial to feed into our optimal design generation

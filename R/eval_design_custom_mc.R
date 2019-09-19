@@ -86,7 +86,7 @@ eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunct
                                  parameternames = NULL,
                                  parallel = FALSE, parallelpackages = NULL, ...) {
   args = list(...)
-  if("RunMatrix" %in% names(args)) {
+  if ("RunMatrix" %in% names(args)) {
     stop("RunMatrix argument deprecated. Use `design` instead.")
   }
   #detect pre-set contrasts
@@ -96,12 +96,17 @@ eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunct
       presetcontrasts[[x]] = attr(design[[x]], "contrasts")
     }
   }
+  if (attr(terms.formula(model, data = design), "intercept") == 1) {
+    nointercept = FALSE
+  } else {
+    nointercept = TRUE
+  }
 
   #covert tibbles
   run_matrix_processed = as.data.frame(design)
 
   #----- Convert dots in formula to terms -----#
-  model = convert_model_dots(run_matrix_processed,model)
+  model = convert_model_dots(run_matrix_processed, model)
 
   #----- Rearrange formula terms by order -----#
   model = rearrange_formula_by_order(model)
@@ -142,7 +147,7 @@ eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunct
     warning("User defined anticipated coefficnets (anticoef) detected; ignoring effectsize argument.")
   }
   if (missing(anticoef)) {
-    anticoef = gen_anticoef(RunMatrixReduced, model) * effectsize / 2
+    anticoef = gen_anticoef(RunMatrixReduced, model, nointercept) * effectsize / 2
     if (!("(Intercept)" %in% colnames(ModelMatrix))) {
       anticoef = anticoef[-1]
     }
@@ -183,25 +188,28 @@ eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunct
     cl = parallel::makeCluster(numbercores)
     doParallel::registerDoParallel(cl, cores = numbercores)
 
-    power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .packages = parallelpackages) %dopar% {
-      power_values = rep(0, ncol(ModelMatrix))
-      #simulate the data.
-      RunMatrixReduced$Y = rfunction(ModelMatrix, anticoef)
+    tryCatch({
+      power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .packages = parallelpackages) %dopar% {
+        power_values = rep(0, ncol(ModelMatrix))
+        #simulate the data.
+        RunMatrixReduced$Y = rfunction(ModelMatrix, anticoef)
 
-      #fit a model to the simulated data.
-      fit = fitfunction(model_formula, RunMatrixReduced, contrastslist)
+        #fit a model to the simulated data.
+        fit = fitfunction(model_formula, RunMatrixReduced, contrastslist)
 
-      #determine whether beta[i] is significant. If so, increment nsignificant
-      pvals = pvalfunction(fit)
-      power_values[pvals < alpha] = 1
-      estimates = coef_function(fit)
+        #determine whether beta[i] is significant. If so, increment nsignificant
+        pvals = pvalfunction(fit)
+        power_values[pvals < alpha] = 1
+        estimates = coef_function(fit)
 
-      #We are going to output a tidy data.frame with the results, so just append the effect powers
-      #to the parameter powers. We'll use another column of that dataframe to label wether it is parameter
-      #or effect power.
-      c(power_values, estimates)
-    }
-    parallel::stopCluster(cl)
+        #We are going to output a tidy data.frame with the results, so just append the effect powers
+        #to the parameter powers. We'll use another column of that dataframe to label wether it is parameter
+        #or effect power.
+        c(power_values, estimates)
+      }
+    }, finally = {
+      parallel::stopCluster(cl)
+    })
     power_values = apply(power_estimates[, 1:nparam], 2, sum) / nsim
     estimates = power_estimates[, (nparam + 1):ncol(power_estimates)]
   }

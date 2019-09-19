@@ -13,10 +13,10 @@
 #'generate the design, or include higher order effects not in the original design generation. It cannot include
 #'factors that are not present in the experimental design.
 #'@param alpha The specified type-I error.
-#'@param blocking Default FALSE. If TRUE, \code{eval_design} will look at the rownames to determine blocking structure.
+#'@param blocking Default `FALSE`. If `TRUE``, \code{eval_design} will look at the rownames to determine blocking structure.
 #'@param anticoef The anticipated coefficients for calculating the power. If missing, coefficients
 #'will be automatically generated based on the \code{effectsize} argument.
-#'@param effectsize The signal-to-noise ratio. Default 2. For continuous factors, this specifies the
+#'@param effectsize The signal-to-noise ratio. Default `2`. For continuous factors, this specifies the
 #' difference in response between the highest and lowest levels of the factor (which are -1 and +1 after \code{eval_design}
 #' normalizes the input data), assuming that the root mean square error is 1. If you do not specify \code{anticoef},
 #' the anticipated coefficients will be half of \code{effectsize}. If you do specify \code{anticoef}, \code{effectsize} will be ignored.
@@ -24,11 +24,14 @@
 #'this ratio can be a vector specifying the variance ratio for each subplot. Otherwise, it will use a single value for all strata.
 #'@param contrasts Default \code{contr.sum}. The function to use to encode the categorical factors in the model matrix. If the user has specified their own contrasts
 #'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
-#'@param detailedoutput If TRUE, return additional information about evaluation in results. Default FALSE.
+#'@param detailedoutput If `TRUE``, return additional information about evaluation in results. Default FALSE.
 #'@param conservative Specifies whether default method for generating
-#'anticipated coefficents should be conservative or not. TRUE will give the most conservative
-#'estimate of power by setting all but one level in each categorical factor's anticipated coefficients
-#'to zero. Default FALSE.
+#'anticipated coefficents should be conservative or not. `TRUE` will give the most conservative
+#'estimate of power by setting all but one (or multiple if they are equally low) level in each categorical factor's anticipated coefficients
+#'to zero. Default `FALSE`.
+#'@param reorder_factors Default `FALSE`. If `TRUE`, the levels will be reordered to generate the most conservative calculation of effect power.
+#'The function searches through all possible reference levels for a given factor and chooses the one that results in the lowest effect power.
+#'The reordering will be presenting in the output when `detailedoutput = TRUE`.
 #'@param ... Additional arguments.
 #'@return A data frame with the parameters of the model, the type of power analysis, and the power. Several
 #'design diagnostics are stored as attributes of the data frame. In particular,
@@ -38,25 +41,37 @@
 #'encoding used for categorical factors.
 #'@details This function evaluates the power of experimental designs.
 #'
-#'Power is calculated under a linear regression framework: you intend to fit a
-#'linear model to the data, of the form
+#'If the design is has no blocking or restrictions on randomization, the model assumed is:
 #'
-#'\eqn{y = X \beta + \epsilon}, (plus blocking terms, if applicable)
+#'\eqn{y = X \beta + \epsilon}.
 #'
-#'where \eqn{y} is the vector of experimental responses, \eqn{X} is the model matrix, \eqn{\beta} is
-#'the vector of model coefficients, and \eqn{\epsilon} is the statistical noise. \code{eval_design}
-#'assumes that \eqn{\epsilon} is
-#'normally distributed with zero mean and unit variance (root-mean-square error is 1), and
-#'calculates both parameter power and effect power.
-#'Parameter power is the probability of rejecting the hypothesis \eqn{\beta_i = 0}, where \eqn{\beta_i} is a single parameter
-#'in the model,
-#'while effect power is the probability of rejecting the hypothesis \eqn{\beta_{i} = 0}, where \eqn{\beta_{i}} is the set of all
-#'parameters associated with the effect in question. The two powers are equivalent for continuous factors and
-#'two-level categorical factors, but they can be different for categorical factors with three or more levels.
+#'If the design is a split-plot design, the model is as follows:
 #'
-#'When using \code{conservative = TRUE}, \code{eval_design} first evaluates the power with default coefficients. Then,
+#'\ifelse{html}{\eqn{y = X \beta + Z b}\out{<sub>i</sub>} + \eqn{\epsilon}\out{<sub>ij</sub>}}{\eqn{y = X \beta + Z b_{i} + \epsilon_{ij}}},
+#'
+#'Here, \eqn{y} is the vector of experimental responses, \eqn{X} is the model matrix, \eqn{\beta} is
+#'the vector of model coefficients, \eqn{Z_{i}} are the blocking indicator,
+#'\eqn{b_{i}} is the random variable associated with the \eqn{i}th block, and \eqn{\epsilon}
+#'is a random variable normally distributed with zero mean and unit variance (root-mean-square error is 1.0).
+#'
+#'\code{eval_design} calculates both parameter power as well as effect power, defined as follows:
+#'
+#'1) Parameter power is the probability of rejecting the hypothesis \eqn{H_0 : \beta_i = 0}, where \eqn{\beta_i} is a single parameter
+#'in the model
+#'2) Effect power is the probability of rejecting the hypothesis \eqn{H_0 : \beta_{1} = \beta_{2} = ... = \beta_{n} 0} for all \eqn{n} coefficients
+#'for a categorical factor.
+#'
+#'The two power types are equivalent for continuous factors and two-level categorical factors,
+#'but they will differ for categorical factors with three or more levels.
+#'
+#'For split-plot designs, the degrees of freedom are allocated to each term according to the algorithm
+#'given in "Mixed-Effects Models in S and S-PLUS" (Pinheiro and Bates, pp. 91).
+#'
+#'When using \code{conservative = TRUE}, \code{eval_design} first evaluates the power with the default (or given) coefficients. Then,
 #'for each multi-level categorical, it sets all coefficients to zero except the level that produced the lowest power,
-#'and then re-evaluates the power with this modified set of anticipated coefficients.
+#'and then re-evaluates the power with this modified set of anticipated coefficients. If there are two or more
+#'equal power values in a multi-level categorical, two of the lowest equal terms are given opposite sign anticipated coefficients
+#'and the rest (for that categorical factor) are set to zero.
 #'@export
 #'@examples #Generating a simple 2x3 factorial to feed into our optimal design generation
 #'#of an 11-run design.
@@ -144,16 +159,12 @@
 #'#Deeper levels of blocking can be specified with additional periods.
 eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
                        effectsize = 2, varianceratios = 1,
-                       contrasts = contr.sum, conservative = FALSE,
+                       contrasts = contr.sum, conservative = FALSE, reorder_factors = FALSE,
                        detailedoutput = FALSE, ...) {
+  input_design = design
   args = list(...)
-  if("RunMatrix" %in% names(args)) {
+  if ("RunMatrix" %in% names(args)) {
     stop("RunMatrix argument deprecated. Use `design` instead.")
-  }
-  if (class(design) %in% c("tbl", "tbl_df") && blocking) {
-    warning("Tibbles strip out rownames, which encode blocking information.
-            Use data frames if the design has a split plot structure.
-            Converting input to data frame")
   }
 
   #detect pre-set contrasts
@@ -163,21 +174,42 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
       presetcontrasts[[x]] = attr(design[[x]], "contrasts")
     }
   }
-
+  # reorder levels for the conservative calculation (if not a balanced design)
+  if (conservative) {
+    for (x in names(design[lapply(design, class) %in% c("character", "factor")])) {
+      number_levels = table(design[[x]])
+      if(length(unique(number_levels)) != 1) {
+        if(identical(contrasts, contr.sum)) {
+          number_levels = table(design[[x]])
+          order_levels = names(number_levels)[order(number_levels)]
+          design[[x]] = factor(design[[x]], levels = rev(order_levels))
+        } else if (identical(contrasts, contr.treatment)) {
+          number_levels = table(design[[x]])
+          order_levels = names(number_levels)[order(number_levels)]
+          design[[x]] = factor(design[[x]], levels = order_levels)
+        }
+      }
+    }
+  }
+  nointercept = attr(stats::terms.formula(model, data = design), "intercept") == 0
   #covert tibbles
   run_matrix_processed = as.data.frame(design)
 
   #Detect externally generated blocking columns and convert to rownames
-  run_matrix_processed = convert_blockcolumn_rownames(run_matrix_processed, blocking)
+  run_matrix_processed = convert_blockcolumn_rownames(run_matrix_processed, blocking, varianceratios)
+  zlist = attr(run_matrix_processed, "z.matrix.list")
 
   #Remove skpr-generated REML blocking columns if present
   run_matrix_processed = remove_skpr_blockcols(run_matrix_processed)
 
   #----- Convert dots in formula to terms -----#
-  model = convert_model_dots(run_matrix_processed,model)
+  model = convert_model_dots(run_matrix_processed, model)
 
   #----- Rearrange formula terms by order -----#
   model = rearrange_formula_by_order(model)
+  if (nointercept) {
+    model = update.formula(model, ~-1 + . )
+  }
 
   #---- Reduce run matrix to terms in model ---#
   run_matrix_processed = reduceRunMatrix(run_matrix_processed, model)
@@ -210,9 +242,9 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
     warning("User defined anticipated coefficients (anticoef) detected; ignoring effectsize argument.")
   }
   if (missing(anticoef)) {
-    default_coef = gen_anticoef(run_matrix_processed, model)
+    default_coef = gen_anticoef(run_matrix_processed, model, nointercept)
     anticoef = anticoef_from_delta(default_coef, effectsize, "gaussian")
-    if (!("(Intercept)" %in% colnames(attr(run_matrix_processed, "modelmatrix")))) {
+    if (nointercept) {
       anticoef = anticoef[-1]
     }
   }
@@ -222,199 +254,185 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
 
 
   #-----Generate V inverse matrix-----X
-  #Variables used later: V, vinv
+  #Variables used later: V, vinv, degrees_of_freedom, parameter_names
   if (blocking) {
-    blocklist = strsplit(rownames(run_matrix_processed), ".", fixed = TRUE)
-
-    existingBlockStructure = do.call(rbind, blocklist)
-    blockgroups = apply(existingBlockStructure, 2, blockingstructure)
-
-    blockMatrixSize = nrow(run_matrix_processed)
-    V = diag(blockMatrixSize)
-    blockcounter = 1
-    if (length(blockgroups) == 1 | is.matrix(blockgroups)) {
-      stop("No blocking detected. Specify block structure in row names or set blocking = FALSE")
-    }
-    if (length(blockgroups) > 2 && length(varianceratios) == 1) {
-      varianceratios = rep(varianceratios, length(blockgroups) - 1)
-    }
-    if (length(blockgroups) > 2 && length(varianceratios) != 1 && length(blockgroups) - 1 != length(varianceratios)) {
-      stop("Wrong number of variance ratio specified. Either specify value for all blocking levels or one value for all blocks.")
-    }
-    blockgroups = blockgroups[-length(blockgroups)]
-    for (block in blockgroups) {
-      V[1:block[1], 1:block[1]] =  V[1:block[1], 1:block[1]] + varianceratios[blockcounter]
-      placeholder = block[1]
-      for (i in 2:length(block)) {
-        V[(placeholder + 1):(placeholder + block[i]), (placeholder + 1):(placeholder + block[i])] =
-          V[(placeholder + 1):(placeholder + block[i]), (placeholder + 1):(placeholder + block[i])] + varianceratios[blockcounter]
-        placeholder = placeholder + block[i]
-      }
-      blockcounter = blockcounter + 1
-    }
+    V = convert_rownames_to_covariance(run_matrix_processed, varianceratios)
     vinv = solve(V)
+    #Below code detects the split-plot columns, and calculates the adjusted degrees of freedom for each term
+    degrees_of_freedom = calculate_degrees_of_freedom(run_matrix_processed, nointercept, model, contrasts)
+    if (!nointercept) {
+      extract_intnames_formula = ~1
+      parameter_names = list()
+      parameter_names[["(Intercept)"]] = "(Intercept)"
+    } else {
+      extract_intnames_formula = ~-1
+      parameter_names = list()
+    }
+    for(i in (length(parameter_names)+1):length(degrees_of_freedom)) {
+      currentterm = names(degrees_of_freedom)[i]
+      extract_intnames_formula = update.formula(extract_intnames_formula, as.formula(paste0("~. + ", currentterm)))
+      newcolnames = suppressWarnings(colnames(model.matrix(extract_intnames_formula, data = design, contrasts.arg = contrastslist)))
+      parameter_names[[currentterm]] = newcolnames[!(newcolnames %in% unlist(parameter_names))]
+    }
   } else {
     vinv = NULL
+    degrees_of_freedom = NULL
+    parameter_names = NULL
   }
 
+  factornames = attr(terms(model), "term.labels")
+  factormatrix = attr(terms(model), "factors")
+  interactionterms = factornames[apply(factormatrix, 2, sum) > 1]
+  higherorderterms = factornames[!(gsub("`", "", factornames, fixed = TRUE) %in% colnames(run_matrix_processed)) &
+                                 !(apply(factormatrix, 2, sum) > 1)]
+  levelvector = sapply(lapply(run_matrix_processed, unique), length)
+  levelvector[lapply(run_matrix_processed, class) == "numeric"] = 2
+  if (!nointercept) {
+    levelvector = c(1, levelvector - 1)
+  } else {
+    levelvector = levelvector - 1
+    for (i in 1:ncol(run_matrix_processed)) {
+      if (class(run_matrix_processed[, i]) %in% c("character", "factor")) {
+        levelvector[i] = levelvector[i] + 1
+        break
+      }
+    }
+  }
+  higherorderlevelvector = rep(1, length(higherorderterms))
+  names(higherorderlevelvector) = higherorderterms
+  levelvector = c(levelvector, higherorderlevelvector)
 
-  #This returns if everything is continuous (no categorical)
-  if (!any(table(attr(attr(run_matrix_processed, "modelmatrix"), "assign")[-1]) != 1)) {
-    effectresults = rep(parameterpower(run_matrix_processed, anticoef, alpha, vinv = vinv), 2)
-    typevector = c(rep("effect.power", length(effectresults) / 2), rep("parameter.power", length(effectresults) / 2))
-    namevector = rep(colnames(attr(run_matrix_processed, "modelmatrix")), 2)
+  for (interaction in interactionterms) {
+    numberlevels = 1
+    for (term in unlist(strsplit(interaction, split = "(\\s+)?:(\\s+)?|(\\s+)?\\*(\\s+)?"))) {
+      numberlevels = numberlevels * levelvector[gsub("`", "", term, fixed = TRUE)]
+    }
+    levelvector = c(levelvector, numberlevels)
+  }
 
-    results = data.frame(parameter = namevector, type = typevector, power = effectresults)
+  effectresults = effectpower(run_matrix_processed, levelvector, anticoef,
+                              alpha, vinv = vinv, degrees = degrees_of_freedom)
+  parameterresults = parameterpower(run_matrix_processed, levelvector, anticoef,
+                                    alpha, vinv = vinv, degrees = degrees_of_freedom, parameter_names = parameter_names)
 
-    attr(results, "modelmatrix") = attr(run_matrix_processed, "modelmatrix")
-    attr(results, "anticoef") = anticoef
+  typevector = c(rep("effect.power", length(effectresults)), rep("parameter.power", length(parameterresults)))
+  if (!nointercept) {
+    effectnamevector = c("(Intercept)", factornames)
+  } else {
+    effectnamevector = factornames
+  }
+  parameternamevector = colnames(attr(run_matrix_processed, "modelmatrix"))
+  namevector = c(effectnamevector, parameternamevector)
+  powervector = c(effectresults, parameterresults)
 
-    modelmatrix_cor = model.matrix(model, run_matrix_processed, contrasts.arg = contrastslist_cormat)
-    if (ncol(modelmatrix_cor) > 2) {
-      correlation.matrix = abs(cov2cor(t(modelmatrix_cor) %*% modelmatrix_cor)[-1, -1])
+  results = data.frame(parameter = namevector, type = typevector, power = powervector)
+
+  if (length(namevector) != length(typevector)) {
+    warning("Number of names does not equal number of power calculations")
+  }
+
+  attr(results, "modelmatrix") = attr(run_matrix_processed, "modelmatrix")
+  attr(results, "anticoef") = anticoef
+
+  modelmatrix_cor = model.matrix(model, run_matrix_processed, contrasts.arg = contrastslist_cormat)
+  if (ncol(modelmatrix_cor) > 2) {
+
+    if (!blocking) {
+      V = diag(nrow(modelmatrix_cor))
+    }
+    if (!nointercept) {
+      correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor))[-1, -1])
       colnames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
       rownames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
-      attr(results, "correlation.matrix") = round(correlation.matrix, 8)
-    }
-
-    attr(results, "generating.model") = model
-    attr(results, "runmatrix") = run_matrix_processed
-
-    levelvector = sapply(lapply(run_matrix_processed, unique), length)
-    classvector = sapply(lapply(run_matrix_processed, unique), class) == "factor"
-    mm = gen_momentsmatrix(colnames(attr(run_matrix_processed, "modelmatrix")), levelvector, classvector)
-
-    attr(results, "moment.matrix") = mm
-    attr(results, "A") = AOptimality(attr(run_matrix_processed, "modelmatrix"))
-
-    if (!blocking) {
-      attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor))
-      attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm,
-                                       blockedVar = diag(nrow(modelmatrix_cor)))
-      attr(results, "D") = 100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
     } else {
-      attr(results, "variance.matrix") = V
-      attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = V)
-      attr(results, "D") = 100 * DOptimalityBlocked(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
-    }
-    if (detailedoutput) {
-      if (nrow(results) != length(anticoef)){
-        results$anticoef = c(rep(NA, nrow(results) - length(anticoef)), anticoef)
-      } else {
-        results$anticoef = anticoef
-      }
-      results$alpha = alpha
-      results$trials = nrow(run_matrix_processed)
+      correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor)))
+      colnames(correlation.matrix) = colnames(modelmatrix_cor)
+      rownames(correlation.matrix) = colnames(modelmatrix_cor)
     }
 
-
-    return(results)
-  } else {
-    factornames = attr(terms(model), "term.labels")
-    factormatrix = attr(terms(model), "factors")
-    interactionterms = factornames[apply(factormatrix, 2, sum) > 1]
-    higherorderterms = factornames[!(gsub("`", "", factornames, fixed = TRUE) %in% colnames(run_matrix_processed)) &
-                                   !(apply(factormatrix, 2, sum) > 1)]
-    levelvector = sapply(lapply(run_matrix_processed, unique), length)
-    levelvector[lapply(run_matrix_processed, class) == "numeric"] = 2
-    if ("(Intercept)" %in% colnames(attr(run_matrix_processed, "modelmatrix"))) {
-      levelvector = c(1, levelvector - 1)
-    } else {
-      levelvector = levelvector - 1
-    }
-    higherorderlevelvector = rep(1, length(higherorderterms))
-    names(higherorderlevelvector) = higherorderterms
-    levelvector = c(levelvector, higherorderlevelvector)
-
-    for (interaction in interactionterms) {
-      numberlevels = 1
-      for (term in unlist(strsplit(interaction, split = "(\\s+)?:(\\s+)?|(\\s+)?\\*(\\s+)?"))) {
-        numberlevels = numberlevels * levelvector[gsub("`", "", term, fixed = TRUE)]
-      }
-      levelvector = c(levelvector, numberlevels)
-    }
-
-    effectresults = effectpower(run_matrix_processed, levelvector, anticoef, alpha, vinv = vinv)
-    parameterresults = parameterpower(run_matrix_processed, anticoef, alpha, vinv = vinv)
-
-    typevector = c(rep("effect.power", length(effectresults)), rep("parameter.power", length(parameterresults)))
-    if ("(Intercept)" %in% colnames(attr(run_matrix_processed, "modelmatrix"))) {
-      effectnamevector = c("(Intercept)", factornames)
-    } else {
-      effectnamevector = factornames
-    }
-    parameternamevector = colnames(attr(run_matrix_processed, "modelmatrix"))
-    namevector = c(effectnamevector, parameternamevector)
-    powervector = c(effectresults, parameterresults)
-
-    results = data.frame(parameter = namevector, type = typevector, power = powervector)
-
-    if (length(namevector) != length(typevector)) {
-      warning("Number of names does not equal number of power calculations")
-    }
-
-    attr(results, "modelmatrix") = attr(run_matrix_processed, "modelmatrix")
-    attr(results, "anticoef") = anticoef
-
-    modelmatrix_cor = model.matrix(model, run_matrix_processed, contrasts.arg = contrastslist_cormat)
-    if (ncol(modelmatrix_cor) > 2) {
-
-      if (!blocking) {
-        V = diag(nrow(modelmatrix_cor))
-      }
-      if ("(Intercept)" %in% colnames(modelmatrix_cor)) {
-        correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor))[-1, -1])
-        colnames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
-        rownames(correlation.matrix) = colnames(modelmatrix_cor)[-1]
-      } else {
-        correlation.matrix = abs(cov2cor(solve(t(modelmatrix_cor) %*% solve(V) %*% modelmatrix_cor)))
-        colnames(correlation.matrix) = colnames(modelmatrix_cor)
-        rownames(correlation.matrix) = colnames(modelmatrix_cor)
-      }
-
-      attr(results, "correlation.matrix") = round(correlation.matrix, 8)
-    }
-    attr(results, "generating.model") = model
-    attr(results, "runmatrix") = run_matrix_processed
-
-    levelvector = sapply(lapply(run_matrix_processed, unique), length)
-    classvector = sapply(lapply(run_matrix_processed, unique), class) == "factor"
-    mm = gen_momentsmatrix(colnames(attr(run_matrix_processed, "modelmatrix")), levelvector, classvector)
-
-    attr(results, "moment.matrix") = mm
-    attr(results, "A") = AOptimality(attr(run_matrix_processed, "modelmatrix"))
-
-    if (!blocking) {
-      attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor))
-      attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = diag(nrow(modelmatrix_cor)))
-      attr(results, "D") = 100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
-    } else {
-      attr(results, "variance.matrix") = V
-      attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = V)
-      attr(results, "D") = 100 * DOptimalityBlocked(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
-    }
-    if (detailedoutput) {
-      if (nrow(results) != length(anticoef)){
-        results$anticoef = c(rep(NA, nrow(results) - length(anticoef)), anticoef)
-      } else {
-        results$anticoef = anticoef
-      }
-      results$alpha = alpha
-      results$trials = nrow(run_matrix_processed)
-    }
-
-    #For conservative coefficients, look for lowest power results from non-conservative calculation and set them to one
-    #and the rest to zero. (If equally low results, apply 1 -1 pattern to lowest)
-
-    if (conservative == TRUE) {
-      #at this point, since we are going to specify anticoef, do not use the effectsize argument
-      #in the subsequent call. Do replicate the magnitudes from the original anticoef
-      conservative_anticoef = calc_conservative_anticoef(results,effectsize)
-      results = eval_design(design = design, model = model, alpha = alpha, blocking = blocking,
-                  anticoef = conservative_anticoef,
-                  detailedoutput = detailedoutput,
-                  varianceratios = varianceratios, contrasts = contrasts, conservative = FALSE)
-    }
-    return(results)
+    attr(results, "correlation.matrix") = round(correlation.matrix, 8)
   }
+  attr(results, "generating.model") = model
+  attr(results, "run.matrix") = run_matrix_processed
+  attr(results, "model.matrix") = modelmatrix_cor
+
+  levelvector = sapply(lapply(run_matrix_processed, unique), length)
+  classvector = sapply(lapply(run_matrix_processed, unique), class) == "factor"
+  mm = gen_momentsmatrix(colnames(attr(run_matrix_processed, "modelmatrix")), levelvector, classvector)
+
+  attr(results, "moment.matrix") = mm
+  attr(results, "A") = AOptimality(attr(run_matrix_processed, "modelmatrix"))
+
+  if (!blocking) {
+    attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor))
+    attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = diag(nrow(modelmatrix_cor)))
+    attr(results, "D") = 100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+  } else {
+    attr(results, "z.matrix.list") = zlist
+    attr(results, "variance.matrix") = V
+    attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = V)
+    attr(results, "D") = 100 * DOptimalityBlocked(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+  }
+  if (detailedoutput) {
+    if (nrow(results) != length(anticoef)){
+      results$anticoef = c(rep(NA, nrow(results) - length(anticoef)), anticoef)
+    } else {
+      results$anticoef = anticoef
+    }
+    results$alpha = alpha
+    results$trials = nrow(run_matrix_processed)
+  }
+
+
+  #For conservative coefficients, look for lowest power results from non-conservative calculation and set them to one
+  #and the rest to zero. (If equally low results, apply 1 -1 pattern to lowest)
+
+  if (conservative) {
+    #at this point, since we are going to specify anticoef, do not use the effectsize argument
+    #in the subsequent call. Do replicate the magnitudes from the original anticoef
+    conservative_anticoef = calc_conservative_anticoef(results, effectsize)
+    results = eval_design(design = design, model = model, alpha = alpha, blocking = blocking,
+                anticoef = conservative_anticoef,
+                detailedoutput = detailedoutput,
+                varianceratios = varianceratios, contrasts = contrasts, conservative = FALSE, reorder_factors = reorder_factors)
+  }
+
+  if(reorder_factors) {
+    if(detailedoutput) {
+      results$reordered_factors = NA
+    }
+    results_temp = results
+    sum_effect_power = sum(with(results_temp, power[type == "effect.power"]))
+    for(i in seq_len(ncol(design))) {
+      if(is.factor(design[,i])) {
+        number_factors = length(levels(design[,i]))
+        temp_design = design
+        cycle = list()
+        cycle[[1]] = levels(temp_design[,i])
+        order_cycle = seq_len(number_factors)
+        for(j in seq_len(number_factors)[-1]) {
+          order_cycle = c(order_cycle[-1],order_cycle[1])
+          cycle[[j]] = levels(temp_design[,i])[order_cycle]
+        }
+        for(j in seq_len(number_factors)) {
+          temp_design[,i] = factor(temp_design[,i],cycle[[j]])
+          adjusted_sum_power = eval_design(design = temp_design, model = model, alpha = alpha, blocking = blocking,
+                                           detailedoutput = detailedoutput,
+                                           varianceratios = varianceratios, contrasts = contrasts, conservative = conservative,
+                                           reorder_factors = FALSE)
+          new_sum_power = sum(with(adjusted_sum_power, power[type == "effect.power"]))
+          if(new_sum_power < sum_effect_power) {
+            design[,i] = factor(design[,i],cycle[[j]])
+            results_temp = adjusted_sum_power
+            sum_effect_power = new_sum_power
+            if(detailedoutput) {
+              results_temp$reordered_factors[results_temp$parameter == names(temp_design)[i]] = paste0(cycle[[j]], collapse = " ")
+            }
+          }
+        }
+      }
+    }
+    results = results_temp
+  }
+  return(results)
 }
