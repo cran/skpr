@@ -32,6 +32,8 @@
 #'@param reorder_factors Default `FALSE`. If `TRUE`, the levels will be reordered to generate the most conservative calculation of effect power.
 #'The function searches through all possible reference levels for a given factor and chooses the one that results in the lowest effect power.
 #'The reordering will be presenting in the output when `detailedoutput = TRUE`.
+#'@param advancedoptions Default `NULL`. A named list with parameters to specify additional attributes to calculate. Options: `aliaspower`
+#'gives the degree at which the Alias matrix should be calculated.
 #'@param ... Additional arguments.
 #'@return A data frame with the parameters of the model, the type of power analysis, and the power. Several
 #'design diagnostics are stored as attributes of the data frame. In particular,
@@ -160,7 +162,7 @@
 eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
                        effectsize = 2, varianceratios = 1,
                        contrasts = contr.sum, conservative = FALSE, reorder_factors = FALSE,
-                       detailedoutput = FALSE, ...) {
+                       detailedoutput = FALSE, advancedoptions = NULL, ...) {
   input_design = design
   args = list(...)
   if ("RunMatrix" %in% names(args)) {
@@ -190,6 +192,14 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
         }
       }
     }
+  }
+  if(is.null(advancedoptions$aliaspower)) {
+    aliaspower = 2
+  } else {
+    if(!is.numeric(advancedoptions$aliaspower)) {
+      stop("advancedoptions$aliaspower must be a positive integer")
+    }
+    aliaspower = advancedoptions$aliaspower
   }
   nointercept = attr(stats::terms.formula(model, data = design), "intercept") == 0
   #covert tibbles
@@ -281,34 +291,7 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
   }
 
   factornames = attr(terms(model), "term.labels")
-  factormatrix = attr(terms(model), "factors")
-  interactionterms = factornames[apply(factormatrix, 2, sum) > 1]
-  higherorderterms = factornames[!(gsub("`", "", factornames, fixed = TRUE) %in% colnames(run_matrix_processed)) &
-                                 !(apply(factormatrix, 2, sum) > 1)]
-  levelvector = sapply(lapply(run_matrix_processed, unique), length)
-  levelvector[lapply(run_matrix_processed, class) == "numeric"] = 2
-  if (!nointercept) {
-    levelvector = c(1, levelvector - 1)
-  } else {
-    levelvector = levelvector - 1
-    for (i in 1:ncol(run_matrix_processed)) {
-      if (class(run_matrix_processed[, i]) %in% c("character", "factor")) {
-        levelvector[i] = levelvector[i] + 1
-        break
-      }
-    }
-  }
-  higherorderlevelvector = rep(1, length(higherorderterms))
-  names(higherorderlevelvector) = higherorderterms
-  levelvector = c(levelvector, higherorderlevelvector)
-
-  for (interaction in interactionterms) {
-    numberlevels = 1
-    for (term in unlist(strsplit(interaction, split = "(\\s+)?:(\\s+)?|(\\s+)?\\*(\\s+)?"))) {
-      numberlevels = numberlevels * levelvector[gsub("`", "", term, fixed = TRUE)]
-    }
-    levelvector = c(levelvector, numberlevels)
-  }
+  levelvector = calculate_level_vector(run_matrix_processed, model, nointercept)
 
   effectresults = effectpower(run_matrix_processed, levelvector, anticoef,
                               alpha, vinv = vinv, degrees = degrees_of_freedom)
@@ -336,7 +319,6 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
 
   modelmatrix_cor = model.matrix(model, run_matrix_processed, contrasts.arg = contrastslist_cormat)
   if (ncol(modelmatrix_cor) > 2) {
-
     if (!blocking) {
       V = diag(nrow(modelmatrix_cor))
     }
@@ -349,8 +331,25 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
       colnames(correlation.matrix) = colnames(modelmatrix_cor)
       rownames(correlation.matrix) = colnames(modelmatrix_cor)
     }
-
     attr(results, "correlation.matrix") = round(correlation.matrix, 8)
+    tryCatch({
+      if (ncol(attr(run_matrix_processed, "modelmatrix")) > 2) {
+        amodel = aliasmodel(model, aliaspower)
+        if (amodel != model) {
+          aliasmatrix = suppressWarnings({
+            model.matrix(aliasmodel(model, aliaspower), design, contrasts.arg = contrastslist)[, -1]
+          })
+          A = solve(t(attr(run_matrix_processed, "modelmatrix")) %*%
+                      attr(run_matrix_processed, "modelmatrix")) %*%
+                    t(attr(run_matrix_processed, "modelmatrix")) %*% aliasmatrix
+          attr(results, "alias.matrix") = A
+          attr(results, "trA") = sum(diag(t(A) %*% A))
+        } else {
+          attr(results, "alias.matrix") = "No alias matrix calculated: full model specified"
+          attr(results, "trA") = "No alias trace calculated: full model specified"
+        }
+      }
+    }, error = function(e) {})
   }
   attr(results, "generating.model") = model
   attr(results, "run.matrix") = run_matrix_processed
@@ -366,12 +365,22 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
   if (!blocking) {
     attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor))
     attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = diag(nrow(modelmatrix_cor)))
-    attr(results, "D") = 100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    deffic = DOptimality(modelmatrix_cor)
+    if(!is.infinite(deffic)) {
+      attr(results, "D") =  100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    } else {
+      attr(results, "D") =  100 * DOptimalityLog(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    }
   } else {
     attr(results, "z.matrix.list") = zlist
     attr(results, "variance.matrix") = V
     attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = V)
-    attr(results, "D") = 100 * DOptimalityBlocked(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    deffic = DOptimalityBlocked(modelmatrix_cor, blockedVar = V)
+    if(!is.infinite(deffic)) {
+      attr(results, "D") =  100 * DOptimalityBlocked(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    } else {
+      attr(results, "D") =  100 * DOptimalityBlockedLog(modelmatrix_cor, blockedVar = V) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+    }
   }
   if (detailedoutput) {
     if (nrow(results) != length(anticoef)){
@@ -382,6 +391,7 @@ eval_design = function(design, model, alpha, blocking = FALSE, anticoef = NULL,
     results$alpha = alpha
     results$trials = nrow(run_matrix_processed)
   }
+
 
 
   #For conservative coefficients, look for lowest power results from non-conservative calculation and set them to one
