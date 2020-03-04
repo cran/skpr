@@ -476,7 +476,7 @@ function(input, output, session) {
                      "library(skpr)<br><br>",
                      ifelse(input$setseed,
                             paste0("<code style=\"color:#468449\">#Setting random number generator seed:</code><br>",
-                                   "set.seed(", input$seed, ")<br><br>"), ""),
+                                   "set.seed(", input$seed, ")<br><br>"), "<code style=\"color:#468449\">#Consider setting a seed to make this script fully reproducible.<br>#Go to Advanced->Set Random Number Generator Seed, click <br>#the checkbox, and set Random Seed to any whole number.</code><br><br>"),
                      "<code style=\"color:#468449\"># Generating candidate set:</code><br>",
                      "candidateset = expand.grid(", inputstring(), ")<br><br>",
                      ifelse(blocking,
@@ -503,7 +503,7 @@ function(input, output, session) {
     }
     if (isblockingtext()) {
       first = paste(c(first, ", <br>", rep("&nbsp;", 20),
-                      "splitplotsizes = ", sizevector), collapse = "")
+                      "blocksizes = ", sizevector), collapse = "")
     }
     if (input$optimality != "D") {
       first = paste(c(first, ", <br>", rep("&nbsp;", 20),
@@ -531,7 +531,7 @@ function(input, output, session) {
     }
     if (isblockingtext()) {
       first = paste(c(first, ", <br>", rep("&nbsp;", 20),
-                      "splitcolumns = ", ifelse(input$splitanalyzable, "TRUE", "FALSE")), collapse = "")
+                      "add_blocking_columns = ", ifelse(input$splitanalyzable, "TRUE", "FALSE")), collapse = "")
     }
     first = paste0(c(first, ")<br><br>"), collapse = "")
     if (input$evaltype == "lm") {
@@ -576,7 +576,7 @@ function(input, output, session) {
                                    ifelse(anyfactors(),
                                           paste0(", </code><br><code style=\"color:#468449\">#   ", "contrasts = ", contraststring(), ")</code>"),
                                           ")<br><br></code>")),
-                            paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument splitcolumns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
+                            paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument add_blocking_columns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
                                    "<code style=\"color:#468449\">#library(lmerTest)<br>#lme4::lmer(formula = Y ",
                                    modelwithblocks(),
                                    ", data = design",
@@ -636,7 +636,7 @@ function(input, output, session) {
                                    ifelse(anyfactors(),
                                           paste0(", </code><br><code style=\"color:#468449\">#   ", "contrasts = ", contraststring(), ")</code>"),
                                           ")<br><br></code>")),
-                            paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument splitcolumns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
+                            paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument add_blocking_columns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
                                    "<code style=\"color:#468449\">#lme4::glmer(formula = Y ",
                                    modelwithblocks(),
                                    ", data = design",
@@ -832,28 +832,28 @@ function(input, output, session) {
                               model = isolate(as.formula(input$model)),
                               trials = isolate(input$trials),
                               splitplotdesign = spd,
-                              splitplotsizes = sizevector,
+                              blocksizes = sizevector,
                               optimality = isolate(optimality()),
                               repeats = isolate(input$repeats),
                               varianceratio = isolate(input$varianceratio),
                               aliaspower = isolate(input$aliaspower),
                               minDopt = isolate(input$mindopt),
                               parallel = isolate(as.logical(input$parallel)),
-                              splitcolumns = isolate(input$splitanalyzable))
+                              add_blocking_columns = isolate(input$splitanalyzable))
         } else {
           design = withProgress(message = "Generating design", value = 0, min = 0, max = 1, expr = {
             gen_design(candidateset = isolate(expand.grid(candidatesetall())),
                        model = isolate(as.formula(input$model)),
                        trials = isolate(input$trials),
                        splitplotdesign = spd,
-                       splitplotsizes = sizevector,
+                       blocksizes = sizevector,
                        optimality = isolate(optimality()),
                        repeats = isolate(input$repeats),
                        varianceratio = isolate(input$varianceratio),
                        aliaspower = isolate(input$aliaspower),
                        minDopt = isolate(input$mindopt),
                        parallel = isolate(as.logical(input$parallel)),
-                       splitcolumns = isolate(input$splitanalyzable),
+                       add_blocking_columns = isolate(input$splitanalyzable),
                        advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))})
         }
       }
@@ -1131,8 +1131,17 @@ function(input, output, session) {
   output$optimalsearch = renderPlot({
     input$submitbutton
     if (isolate(optimality()) %in% c("D", "G", "A")) {
-      isolate(plot(attr(runmatrix(), "optimalsearchvalues"), xlab = "Search Iteration", ylab = paste(optimality(), "Efficiency (higher is better)"), type = "p", col = "red", pch = 16, ylim = c(0, 100)))
-      isolate(points(x = attr(runmatrix(), "best"), y = attr(runmatrix(), "optimalsearchvalues")[attr(runmatrix(), "best")], type = "p", col = "green", pch = 16, cex = 2, ylim = c(0, 100)))
+      if(attr(runmatrix(), "blocking") || attr(runmatrix(), "splitplot")) {
+        max_y_val = max(attr(runmatrix(), "optimalsearchvalues"),na.rm=TRUE)
+        statement = "Optimality Value (higher is better)"
+      }  else {
+        max_y_val = 100
+        statement = "Efficiency (higher is better)"
+      }
+      isolate(plot(attr(runmatrix(), "optimalsearchvalues"), xlab = "Search Iteration", ylab = paste(optimality(), statement),
+                   type = "p", col = "red", pch = 16, ylim = c(0, max_y_val)))
+      isolate(points(x = attr(runmatrix(), "best"), y = attr(runmatrix(), "optimalsearchvalues")[attr(runmatrix(), "best")],
+                     type = "p", col = "green", pch = 16, cex = 2, ylim = c(0, max_y_val)))
     } else {
       if (isolate(optimality()) == "I") {
         isolate(plot(attr(runmatrix(), "optimalsearchvalues"), xlab = "Search Iteration", ylab = "Average Prediction Variance (lower is better)", type = "p", col = "red", pch = 16))

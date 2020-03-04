@@ -7,8 +7,11 @@
 #'
 #'@param design The experimental design. Internally, \code{eval_design_custom_mc} rescales each numeric column
 #'to the range [-1, 1].
-#'@param model The statistical model used to fit the data.
-#'@param alpha The type-I error.
+#'@param model The model used in evaluating the design. If this is missing and the design
+#'was generated with skpr, the generating model will be used. It can be a subset of the model used to
+#'generate the design, or include higher order effects not in the original design generation. It cannot include
+#'factors that are not present in the experimental design.
+#'@param alpha Default `0.05`. The type-I error. p-values less than this will be counted as significant.
 #'@param nsim The number of simulations.
 #'@param rfunction Random number generator function. Should be a function of the form f(X, b), where X is the
 #'model matrix and b are the anticipated coefficients.
@@ -80,18 +83,33 @@
 #'                          rfunction = rsurvival, effectsize = 1)
 #'
 #'#This has the exact same behavior as eval_design_survival_mc for the exponential distribution.
-eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunction, pvalfunction,
+eval_design_custom_mc = function(design, model = NULL, alpha = 0.05,
+                                 nsim, rfunction, fitfunction, pvalfunction,
                                  anticoef, effectsize = 2, contrasts = contr.sum,
                                  coef_function = coef,
                                  parameternames = NULL,
                                  parallel = FALSE, parallelpackages = NULL, ...) {
+
+  if(missing(design)) {
+    stop("No design detected in arguments.")
+  }
+  if(missing(model) || (is.numeric(model) && missing(alpha))) {
+    if(is.numeric(model) && missing(alpha)) {
+      alpha = model
+    }
+    if(is.null(attr(design,"generating.model"))) {
+      stop("No model detected in arguments or in design attributes.")
+    } else {
+      model = attr(design,"generating.model")
+    }
+  }
   args = list(...)
   if ("RunMatrix" %in% names(args)) {
     stop("RunMatrix argument deprecated. Use `design` instead.")
   }
   #detect pre-set contrasts
   presetcontrasts = list()
-  for (x in names(design[lapply(design, class) %in% c("character", "factor")])) {
+  for (x in names(design)[lapply(design, class) %in% c("character", "factor")]) {
     if (!is.null(attr(design[[x]], "contrasts"))) {
       presetcontrasts[[x]] = attr(design[[x]], "contrasts")
     }
@@ -219,7 +237,13 @@ eval_design_custom_mc = function(design, model, alpha, nsim, rfunction, fitfunct
                       power = power_values)
   attr(retval, "estimatesnames") = parameter_names
   attr(retval, "estimates") = estimates
-  retval
+  attr(retval, "alpha") = alpha
+  attr(retval, "runmatrix") = RunMatrixReduced
+  attr(retval, "anticoef") = anticoef
 
+  if(!inherits(retval,"skpr_eval_output")) {
+    class(retval) = c("skpr_eval_output", class(retval))
+  }
+  return(retval)
 }
 globalVariables("i")

@@ -4,18 +4,34 @@
 \alias{eval_design_custom_mc}
 \title{Monte Carlo power evaluation for experimental designs with user-supplied libraries}
 \usage{
-eval_design_custom_mc(design, model, alpha, nsim, rfunction, fitfunction,
-  pvalfunction, anticoef, effectsize = 2, contrasts = contr.sum,
-  coef_function = coef, parameternames = NULL, parallel = FALSE,
-  parallelpackages = NULL, ...)
+eval_design_custom_mc(
+  design,
+  model = NULL,
+  alpha = 0.05,
+  nsim,
+  rfunction,
+  fitfunction,
+  pvalfunction,
+  anticoef,
+  effectsize = 2,
+  contrasts = contr.sum,
+  coef_function = coef,
+  parameternames = NULL,
+  parallel = FALSE,
+  parallelpackages = NULL,
+  ...
+)
 }
 \arguments{
 \item{design}{The experimental design. Internally, \code{eval_design_custom_mc} rescales each numeric column
 to the range [-1, 1].}
 
-\item{model}{The statistical model used to fit the data.}
+\item{model}{The model used in evaluating the design. If this is missing and the design
+was generated with skpr, the generating model will be used. It can be a subset of the model used to
+generate the design, or include higher order effects not in the original design generation. It cannot include
+factors that are not present in the experimental design.}
 
-\item{alpha}{The type-I error.}
+\item{alpha}{Default `0.05`. The type-I error. p-values less than this will be counted as significant.}
 
 \item{nsim}{The number of simulations.}
 

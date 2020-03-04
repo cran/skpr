@@ -6,13 +6,16 @@
 #'@param varianceratios A vector of variance ratios for each level of restricted randomization
 #'@return Row-name encoded blocked run matrix
 #'@keywords internal
-convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios) {
+convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios, user_specified_varianceratio,
+                                        verbose = FALSE) {
   if (is.null(attr(RunMatrix, "splitanalyzable")) &&
       any(grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE)) ||
       any(grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE))) {
     blockcols = grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE) | grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE)
     if (blocking) {
-      message("Detected externally generated blocking columns: attempting to interpret blocking structure.")
+      if(verbose) {
+        message("Detected externally generated blocking columns: attempting to interpret blocking structure.")
+      }
       blockmatrix = RunMatrix[, blockcols, drop = FALSE]
       blockmatrix = blockmatrix[, order(unlist(lapply(lapply(blockmatrix, unique), length))), drop = FALSE]
       blockvals = lapply(blockmatrix, unique)
@@ -50,10 +53,20 @@ convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios) {
       }
       blockgroups = lapply(blockmatrix, table)
       names(blockgroups) = NULL
-      zlist = list()
-      if (length(varianceratios) == 1 && length(blockgroups) > 1) {
-        varianceratios = rep(varianceratios[1], length(blockgroups))
+      if (length(blockgroups) != length(varianceratios) && length(varianceratios) == 1) {
+        if(user_specified_varianceratio) {
+          warning("Single varianceratio entered for multiple layers. Setting all but the run-to-run varianceratio to that level.")
+        }
+        varianceratios = c(rep(varianceratios,length(blockgroups)-1),1)
       }
+      if (length(blockgroups) - 1 == length(varianceratios)) {
+        varianceratios = c(varianceratios,1)
+      }
+      if (length(blockgroups) != length(varianceratios)) {
+        stop("Wrong number of variance ratios specified. ", length(varianceratios),
+             " variance ratios given: c(",paste(varianceratios,collapse=", "), "), ", length(blockgroups) , " expected. Either specify value for all blocking levels or one ratio for all blocks other than then run-to-run variance.")
+      }
+      zlist = list()
       for (i in seq_along(1:length(blockgroups))) {
         tempblocks = blockgroups[[i]]
         tempnumberblocks = length(tempblocks)
@@ -65,7 +78,11 @@ convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios) {
         }
         zlist[[i]] = ztemp
       }
-      attr(RunMatrix, "z.matrix.list") = zlist
+      if(is.null(attr(RunMatrix, "z.matrix.list"))) {
+        attr(RunMatrix, "z.matrix.list") = zlist
+      } else {
+        attr(RunMatrix, "z.matrix.list") = list(attr(RunMatrix, "z.matrix.list"), zlist)
+      }
       allattr = attributes(RunMatrix)
       allattr$names = allattr$names[!blockcols]
       RunMatrix = RunMatrix[, !blockcols, drop = FALSE]
@@ -79,5 +96,6 @@ convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios) {
       attributes(RunMatrix) = allattr
     }
   }
+  attr(RunMatrix,"tempvar") = varianceratios
   return(RunMatrix)
 }

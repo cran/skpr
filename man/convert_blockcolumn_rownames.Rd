@@ -4,7 +4,13 @@
 \alias{convert_blockcolumn_rownames}
 \title{Convert Block Column to Rownames}
 \usage{
-convert_blockcolumn_rownames(RunMatrix, blocking, varianceratios)
+convert_blockcolumn_rownames(
+  RunMatrix,
+  blocking,
+  varianceratios,
+  user_specified_varianceratio,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{RunMatrix}{The run matrix}

@@ -2,10 +2,16 @@
 #'
 #'@description Creates a fraction of design space plot
 #'
-#'@param genoutput The design, or the output of the power evaluation functions.
-#'@param model The model, by default uses the model used in eval_design or gen_design.
-#'@param continuouslength Default 9. The precision of the continuous variables.
-#'@return Plots design diagnostics
+#'@param genoutput The design, or the output of the power evaluation functions. This can also be a list
+#'of several designs, which will result in all of them being plotted in a row (for easy comparison).
+#'@param model Default `NULL`. The model, if `NULL` it defaults to the model used in `eval_design` or `gen_design`.
+#'@param continuouslength Default `31`. The precision of the continuous variables. Decrease for faster (but less precise) plotting.
+#'@param plot Default `TRUE`. Whether to plot the FDS, or just calculate the cumulative distribution function.
+#'@param yaxis_max Default `NULL`. Manually set the maximum value of the prediction variance.
+#'@param description Default `Fraction of Design Space`. The description to add to the plot. If a vector and multiple designs
+#'passed to genoutput, it will be the description for each plot.
+#'@return Plots design diagnostics, and invisibly returns the vector of values representing the fraction of design space plot. If multiple
+#'designs are passed, this will return a list of all FDS vectors.
 #'@import graphics grDevices
 #'@export
 #'@examples
@@ -20,8 +26,36 @@
 #'design = gen_design(candidatelist, ~(X1 + X2), 15)
 #'
 #'plot_fds(design)
-plot_fds = function(genoutput, model = NULL, continuouslength = 11) {
-
+plot_fds = function(genoutput, model = NULL, continuouslength = 31, plot=TRUE,
+                    yaxis_max = NULL, description="Fraction of Design Space") {
+  if(inherits(genoutput,"list") && length(genoutput) > 1) {
+    old.par = par(no.readonly = TRUE)
+    on.exit(par(old.par))
+    par(mfrow = c(1,length(genoutput)))
+    fds_values = list()
+    if(!plot && !is.null(yaxis_max)) {
+      warning("`plot = FALSE` but `yaxis_max` non-NULL. Setting `yaxis_max` to NULL")
+      yaxis_max = NULL
+    }
+    if(is.null(yaxis_max)) {
+      for(i in 1:length(genoutput)) {
+        fds_values[[i]] = plot_fds(genoutput[[i]], model=model,
+                                   continuouslength = continuouslength, plot=FALSE)
+      }
+      yaxis_max = max(unlist(fds_values)) + max(unlist(fds_values)) / 20
+    }
+    if(length(description) == 1) {
+      description = rep(description, length(genoutput))
+    }
+    if(plot) {
+      for(i in 1:length(genoutput)) {
+        fds_values[[i]] = plot_fds(genoutput[[i]], model=model, continuouslength = continuouslength,
+                                   plot=plot, yaxis_max=yaxis_max,
+                                   description = description[i])
+      }
+    }
+    return(invisible(fds_values))
+  }
   #Remove skpr-generated REML blocking indicators if present
   if (!is.null(attr(genoutput, "splitanalyzable"))) {
     if (attr(genoutput, "splitanalyzable")) {
@@ -31,15 +65,25 @@ plot_fds = function(genoutput, model = NULL, continuouslength = 11) {
       attributes(genoutput) = allattr
     }
   }
+  if (!is.null(attr(genoutput, "splitcolumns"))) {
+    allattr = attributes(genoutput)
+    genoutput = genoutput[, !(colnames(genoutput) %in% attr(genoutput, "splitcolumns")), drop = FALSE]
+    allattr$names = allattr$names[!allattr$names %in% attr(genoutput, "splitcolumns")]
+    attributes(genoutput) = allattr
+  }
 
   Iopt = attr(genoutput, "I")
   V = attr(genoutput, "variance.matrix")
 
-  if (is.null(model)) {
-    model = attr(genoutput, "generating.model")
+  if(is.null(model)) {
+    if(!is.null(attr(genoutput, "generating.model"))) {
+      model = attr(genoutput, "generating.model")
+    } else {
+      model = ~.
+    }
   }
-  if (!is.null(attr(genoutput, "run.matrix"))) {
-    genoutput = attr(genoutput, "run.matrix")
+  if (!is.null(attr(genoutput, "runmatrix"))) {
+    genoutput = attr(genoutput, "runmatrix")
   }
 
   factornames = colnames(genoutput)[unlist(lapply(genoutput, class)) %in% c("factor", "character")]
@@ -93,13 +137,20 @@ plot_fds = function(genoutput, model = NULL, continuouslength = 11) {
   }
   varsorderedscaled = varsordered / scale * Iopt
   midval = varsorderedscaled[5000]
-  maxyaxis = max(varsorderedscaled) + max(varsorderedscaled) / 20
-
-  plot(1:length(varsorderedscaled) / length(varsorderedscaled), varsorderedscaled, ylim = c(0, maxyaxis), type = "n",
-       xlab = "Fraction of Design Space", ylab = "Prediction Variance",
-       xlim = c(0, 1), xaxs = "i", yaxs = "i")
-  abline(v = 0.5, untf = FALSE, lty = 2, col = "red", lwd = 2)
-  abline(h = midval, untf = FALSE, lty = 2, col = "red", lwd = 2)
-  lines(1:length(varsorderedscaled) / length(varsorderedscaled), varsorderedscaled, lwd = 2, col = "blue")
-
+  if(is.null(yaxis_max)) {
+    maxyaxis = max(varsorderedscaled) + max(varsorderedscaled) / 20
+  } else {
+    maxyaxis = yaxis_max
+  }
+  if(plot) {
+    plot(1:length(varsorderedscaled) / length(varsorderedscaled), varsorderedscaled, ylim = c(0, maxyaxis), type = "n",
+         xlab = description, ylab = "Prediction Variance",
+         xlim = c(0, 1), xaxs = "i", yaxs = "i")
+    abline(v = 0.5, untf = FALSE, lty = 2, col = "red", lwd = 2)
+    abline(h = midval, untf = FALSE, lty = 2, col = "red", lwd = 2)
+    lines(1:length(varsorderedscaled) / length(varsorderedscaled), varsorderedscaled, lwd = 2, col = "blue")
+    invisible(varsorderedscaled)
+  } else {
+    return(varsorderedscaled)
+  }
 }

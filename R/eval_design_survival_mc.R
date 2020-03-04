@@ -5,8 +5,11 @@
 #'using the \code{survival} package and \code{survreg} to fit the data. Split-plot designs are not supported.
 #'
 #'@param design The experimental design. Internally, all numeric columns will be rescaled to [-1, +1].
-#'@param model The statistical model used to fit the data.
-#'@param alpha The type-I error.
+#'@param model The model used in evaluating the design. If this is missing and the design
+#'was generated with skpr, the generating model will be used. It can be a subset of the model used to
+#'generate the design, or include higher order effects not in the original design generation. It cannot include
+#'factors that are not present in the experimental design.
+#'@param alpha Default `0.05`. The type-I error. p-values less than this will be counted as significant.
 #'@param nsim The number of simulations. Default 1000.
 #'@param distribution Distribution of survival function to use when fitting the data. Valid choices are described
 #'in the documentation for \code{survreg}. \emph{Supported} options are
@@ -109,17 +112,30 @@
 #'eval_design_survival_mc(design = design, model = ~a, alpha = 0.2, nsim = 100,
 #'                         distribution = "lognormal", rfunctionsurv = rlognorm,
 #'                         anticoef = c(0.184, 0.101), scale = 0.4)
-eval_design_survival_mc = function(design, model, alpha,
+eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
                                    nsim = 1000, distribution = "gaussian", censorpoint = NA, censortype = "right",
                                    rfunctionsurv = NULL, anticoef = NULL, effectsize = 2, contrasts = contr.sum,
                                    parallel = FALSE, detailedoutput = FALSE, advancedoptions = NULL, ...) {
+  if(missing(design)) {
+    stop("No design detected in arguments.")
+  }
+  if(missing(model) || (is.numeric(model) && missing(alpha))) {
+    if(is.numeric(model) && missing(alpha)) {
+      alpha = model
+    }
+    if(is.null(attr(design,"generating.model"))) {
+      stop("No model detected in arguments or in design attributes.")
+    } else {
+      model = attr(design,"generating.model")
+    }
+  }
   args = list(...)
   if ("RunMatrix" %in% names(args)) {
     stop("RunMatrix argument deprecated. Use `design` instead.")
   }
   #detect pre-set contrasts
   presetcontrasts = list()
-  for (x in names(design[lapply(design, class) %in% c("character", "factor")])) {
+  for (x in names(design)[lapply(design, class) %in% c("character", "factor")]) {
     if (!is.null(attr(design[[x]], "contrasts"))) {
       presetcontrasts[[x]] = attr(design[[x]], "contrasts")
     }
@@ -204,7 +220,7 @@ eval_design_survival_mc = function(design, model, alpha,
   RunMatrixReduced = reduceRunMatrix(run_matrix_processed, model)
 
   contrastslist = list()
-  for (x in names(RunMatrixReduced[lapply(RunMatrixReduced, class) %in% c("character", "factor")])) {
+  for (x in names(RunMatrixReduced)[lapply(RunMatrixReduced, class) %in% c("character", "factor")]) {
     if (!(x %in% names(presetcontrasts))) {
       contrastslist[[x]] = contrasts
     } else {
@@ -323,6 +339,9 @@ eval_design_survival_mc = function(design, model, alpha,
   attr(retval, "modelmatrix") = ModelMatrix
   attr(retval, "anticoef") = anticoef
   attr(retval, "pvals") = pvals
+  attr(retval, "alpha") = alpha
+  attr(retval, "runmatrix") = RunMatrixReduced
+
 
   if (detailedoutput) {
     retval$anticoef = anticoef
@@ -331,7 +350,9 @@ eval_design_survival_mc = function(design, model, alpha,
     retval$trials = nrow(run_matrix_processed)
     retval$nsim = nsim
   }
-  retval
-
+  if(!inherits(retval,"skpr_eval_output")) {
+    class(retval) = c("skpr_eval_output", class(retval))
+  }
+  return(retval)
 }
 globalVariables("i")

@@ -20,7 +20,8 @@ skprGUIserver = function(inputValue1, inputValue2) {
                 padding-bottom: 10px;
                 color: rgb(255, 255, 255);
                 border: 0px;"
-
+  b64 = base64enc::dataURI(file=system.file("shiny", "skprGUI","www", "idalogoblacksmaller.png", package = "skpr"),
+                           mime="image/png")
   ui = function(request) {
     fluidPage(theme = shinytheme("yeti"),
               shinyjs::useShinyjs(),
@@ -709,10 +710,11 @@ skprGUIserver = function(inputValue1, inputValue2) {
                                 )
                    ),
                    mainPanel(fluidRow(
-                     column(width = 6, h1("Results")),
+                     column(width = 4, h1("Results")),
                      column(width = 2),
                      column(width = 2, introBox(bookmarkButton(label = "Save State", title = "Generates a URL that encodes the current state of the application for easy sharing and saving of analyses. Paste this URL into a browser (possible changing the port and address if locally different) to restore the state of the application. Be sure to set a random seed before bookmarking to recover the same results."), class = "bookmark", data.step = 33, data.intro = "Generates a URL that encodes the current state of the application for easy sharing and saving of analyses. Paste this URL into a browser (possible changing the port and address if locally different) to restore the state of the application. Be sure to set a random seed before bookmarking to recover the same results.")),
-                     column(width = 2, actionButton(inputId = "tutorial", "Tutorial")),
+                     column(width = 2, actionButton(inputId = "tutorial", "Tutorial", icon = icon("question-circle"))),
+                     column(width = 2, HTML(paste0("<div style='float:right; margin-top: 25px;'><img src=",b64,"\"></img></div>"))),
                      tags$style(type = "text/css", "#tutorial {margin-top: 25px;} .bookmark {margin-top: 25px;}")
                    ),
                    tabsetPanel(
@@ -1433,7 +1435,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
                        "library(skpr)<br><br>",
                        ifelse(input$setseed,
                               paste0("<code style=\"color:#468449\">#Setting random number generator seed:</code><br>",
-                                     "set.seed(", input$seed, ")<br><br>"), ""),
+                                     "set.seed(", input$seed, ")<br><br>"), "<code style=\"color:#468449\">#Consider setting a seed to make this script fully reproducible.<br>#Go to Advanced->Set Random Number Generator Seed, click <br>#the checkbox, and set Random Seed to any whole number.</code><br><br>"),
                        "<code style=\"color:#468449\"># Generating candidate set:</code><br>",
                        "candidateset = expand.grid(", inputstring(), ")<br><br>",
                        ifelse(blocking,
@@ -1460,7 +1462,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
       }
       if (isblockingtext()) {
         first = paste(c(first, ", <br>", rep("&nbsp;", 20),
-                        "splitplotsizes = ", sizevector), collapse = "")
+                        "blocksizes = ", sizevector), collapse = "")
       }
       if (input$optimality != "D") {
         first = paste(c(first, ", <br>", rep("&nbsp;", 20),
@@ -1488,7 +1490,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
       }
       if (isblockingtext()) {
         first = paste(c(first, ", <br>", rep("&nbsp;", 20),
-                        "splitcolumns = ", ifelse(input$splitanalyzable, "TRUE", "FALSE")), collapse = "")
+                        "add_blocking_columns = ", ifelse(input$splitanalyzable, "TRUE", "FALSE")), collapse = "")
       }
       first = paste0(c(first, ")<br><br>"), collapse = "")
       if (input$evaltype == "lm") {
@@ -1533,7 +1535,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
                                        ifelse(anyfactors(),
                                               paste0(", </code><br><code style=\"color:#468449\">#   ", "contrasts = ", contraststring(), ")</code>"),
                                               ")<br><br></code>")),
-                                paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument splitcolumns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
+                                paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument add_blocking_columns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
                                   "<code style=\"color:#468449\">#library(lmerTest)<br>#lme4::lmer(formula = Y ",
                                   modelwithblocks(),
                                   ", data = design",
@@ -1593,7 +1595,7 @@ skprGUIserver = function(inputValue1, inputValue2) {
                                      ifelse(anyfactors(),
                                             paste0(", </code><br><code style=\"color:#468449\">#   ", "contrasts = ", contraststring(), ")</code>"),
                                             ")<br><br></code>")),
-                              paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument splitcolumns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
+                              paste0(ifelse(input$splitanalyzable, "", "<code style=\"color:#468449\">## Note: Argument add_blocking_columns needs to be active in last gen_design call in order<br>## to analyze data taking into account the split-plot structure. The code below assumes that is true. <br><br></code>"),
                                      "<code style=\"color:#468449\">#lme4::glmer(formula = Y ",
                                      modelwithblocks(),
                                      ", data = design",
@@ -1791,19 +1793,19 @@ skprGUIserver = function(inputValue1, inputValue2) {
         aliaspower_async = input$aliaspower
         varianceratio_async = input$varianceratio
         mindopt_async =  input$mindopt
-        splitcolumns_aync = input$splitanalyzable
+        add_blocking_columns_aync = input$splitanalyzable
         return(future({
           temp = skpr::gen_design(candidateset = candidatesetall_async,
                    model = as.formula(model_async),
                    trials = trials_async,
                    splitplotdesign = spd,
-                   splitplotsizes = sizevector,
+                   blocksizes = sizevector,
                    optimality = optimality_async,
                    repeats = repeats_async,
                    varianceratio = varianceratio_async,
                    aliaspower = aliaspower_async,
                    minDopt = mindopt_async,
-                   splitcolumns = splitcolumns_aync,
+                   add_blocking_columns = add_blocking_columns_aync,
                    advancedoptions = list(GUI = TRUE, progressBarUpdater = progress_bar_updater))
           attr(temp, "generating.model") = NULL
           saveRDS(temp, file = file.path(tempdir_runmatrix, paste0(unique_file_name2, ".Rds")))
@@ -2013,8 +2015,17 @@ skprGUIserver = function(inputValue1, inputValue2) {
     output$optimalsearch = renderPlot({
       format_search = function(runmat) {
         if (isolate(optimality()) %in% c("D", "G", "A")) {
-          isolate(plot(attr(runmat, "optimalsearchvalues"), xlab = "Search Iteration", ylab = paste(isolate(optimality()), "Efficiency (higher is better)"), type = "p", col = "red", pch = 16, ylim = c(0, 100)))
-          isolate(points(x = attr(runmat, "best"), y = attr(runmat, "optimalsearchvalues")[attr(runmat, "best")], type = "p", col = "green", pch = 16, cex = 2, ylim = c(0, 100)))
+          if(attr(runmat, "blocking") || attr(runmat, "splitplot")) {
+            max_y_val = max(attr(runmat, "optimalsearchvalues"),na.rm=TRUE)
+            statement = "Optimality Value (higher is better)"
+          }  else {
+            max_y_val = 100
+            statement = "Efficiency (higher is better)"
+          }
+          isolate(plot(attr(runmat, "optimalsearchvalues"), xlab = "Search Iteration", ylab = paste(isolate(optimality()), statement),
+                       type = "p", col = "red", pch = 16, ylim = c(0, max_y_val)))
+          isolate(points(x = attr(runmat, "best"), y = attr(runmat, "optimalsearchvalues")[attr(runmat, "best")],
+                         type = "p", col = "green", pch = 16, cex = 2, ylim = c(0, max_y_val)))
         } else {
           if (isolate(isolate(optimality())) == "I") {
             isolate(plot(attr(runmat, "optimalsearchvalues"), xlab = "Search Iteration", ylab = "Average Prediction Variance (lower is better)", type = "p", col = "red", pch = 16))

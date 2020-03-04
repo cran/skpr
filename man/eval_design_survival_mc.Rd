@@ -4,18 +4,33 @@
 \alias{eval_design_survival_mc}
 \title{Evaluate Power for Survival Design}
 \usage{
-eval_design_survival_mc(design, model, alpha, nsim = 1000,
-  distribution = "gaussian", censorpoint = NA, censortype = "right",
-  rfunctionsurv = NULL, anticoef = NULL, effectsize = 2,
-  contrasts = contr.sum, parallel = FALSE, detailedoutput = FALSE,
-  advancedoptions = NULL, ...)
+eval_design_survival_mc(
+  design,
+  model = NULL,
+  alpha = 0.05,
+  nsim = 1000,
+  distribution = "gaussian",
+  censorpoint = NA,
+  censortype = "right",
+  rfunctionsurv = NULL,
+  anticoef = NULL,
+  effectsize = 2,
+  contrasts = contr.sum,
+  parallel = FALSE,
+  detailedoutput = FALSE,
+  advancedoptions = NULL,
+  ...
+)
 }
 \arguments{
 \item{design}{The experimental design. Internally, all numeric columns will be rescaled to [-1, +1].}
 
-\item{model}{The statistical model used to fit the data.}
+\item{model}{The model used in evaluating the design. If this is missing and the design
+was generated with skpr, the generating model will be used. It can be a subset of the model used to
+generate the design, or include higher order effects not in the original design generation. It cannot include
+factors that are not present in the experimental design.}
 
-\item{alpha}{The type-I error.}
+\item{alpha}{Default `0.05`. The type-I error. p-values less than this will be counted as significant.}
 
 \item{nsim}{The number of simulations. Default 1000.}
 

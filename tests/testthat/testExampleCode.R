@@ -69,22 +69,22 @@ test_that("gen_design example code runs without errors", {
   #'#Putting this all together:
   expect_silent({
     designsplitplot = gen_design(candlist1, ~Altitude + Range + Power, trials = 33, splitplotdesign = hardtochangedesign,
-                                 splitplotsizes = 3)})
+                                 blocksizes = 3)})
 
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "I")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "I")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "A")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "A")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "D")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "D")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "E")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "E")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "T")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "T")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "Alias")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "Alias")})
   expect_silent({design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33,
-                                     splitplotdesign = hardtochangedesign, splitplotsizes = 3, optimality = "G")})
+                                     splitplotdesign = hardtochangedesign, blocksizes = 3, optimality = "G")})
   #testing custom
   # customOpt = function(currentDesign) {
   #   return(det(t(currentDesign) %*% currentDesign))
@@ -98,7 +98,7 @@ test_that("gen_design example code runs without errors", {
   # hardtochangedesign = gen_design(candidateset = candlist1, model = ~Altitude, trials = 11, optimality = "custom")
   #
   # splitplotblocksize = rep(3, 11)
-  # design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33, splitplotdesign = hardtochangedesign, splitplotsizes = splitplotblocksize, optimality = "custom")
+  # design = gen_design(candlist1, ~Altitude + Range + Power, trials = 33, splitplotdesign = hardtochangedesign, blocksizes = splitplotblocksize, optimality = "custom")
   #'
   #'#The split-plot structure is encoded into the row names, with a period demarcating the blocking level. This process
   #'#can be repeated for arbitrary levels of blocking (i.e. a split-plot design can be entered in as the hard-to-change
@@ -111,9 +111,9 @@ test_that("gen_design example code runs without errors", {
                           Age = c(1, -1))
   #'
   expect_silent(gen_design(candlist3, ~Location, trials = 6) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6)) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate + Vineyard, 48, splitplotdesign = temp, splitplotsizes = rep(4, 12)) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate + Vineyard + Age, 192, splitplotdesign = temp, splitplotsizes = rep(4, 48)) -> splitsplitsplitplotdesign)
+  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6)) -> temp)
+  expect_silent(gen_design(candlist3, ~Location + Climate + Vineyard, 48, splitplotdesign = temp, blocksizes = rep(4, 12)) -> temp)
+  expect_silent(gen_design(candlist3, ~Location + Climate + Vineyard + Age, 192, splitplotdesign = temp, blocksizes = rep(4, 48)) -> splitsplitsplitplotdesign)
   #'
   #'test user-supplied block detection
   externaldesign  = data.frame(Block1 = c(1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8), var1 = c(-1, 1))
@@ -122,15 +122,12 @@ test_that("gen_design example code runs without errors", {
   expect_warning(eval_design_mc(externaldesign,  ~., 0.2, nsim = 10), "ignoring blocking structure and removing blocking columns.")
   expect_warning(eval_design_mc(externaldesign2, ~., 0.2, nsim = 10), "ignoring blocking structure and removing blocking columns.")
   expect_warning(eval_design_mc(externaldesign3, ~., 0.2, nsim = 10), "ignoring blocking structure and removing blocking columns.")
-  expect_message(eval_design_mc(externaldesign, ~., 0.2, blocking = TRUE, nsim = 10), "attempting to interpret blocking structure.")
-  expect_message(eval_design_mc(externaldesign2, ~., 0.2, blocking = TRUE, nsim = 10), "attempting to interpret blocking structure.")
-  expect_message(eval_design_mc(externaldesign3, ~., 0.2, blocking = TRUE, nsim = 10), "attempting to interpret blocking structure.")
   expect_warning(eval_design(externaldesign,  ~., 0.2), "ignoring blocking structure and removing blocking columns.")
   expect_warning(eval_design(externaldesign2, ~., 0.2), "ignoring blocking structure and removing blocking columns.")
   expect_warning(eval_design(externaldesign3, ~., 0.2), "ignoring blocking structure and removing blocking columns.")
-  expect_message(eval_design(externaldesign, ~., 0.2, blocking = TRUE), "attempting to interpret blocking structure.")
-  expect_message(eval_design(externaldesign2, ~., 0.2, blocking = TRUE), "attempting to interpret blocking structure.")
-  expect_message(eval_design(externaldesign3, ~., 0.2, blocking = TRUE), "attempting to interpret blocking structure.")
+  expect_silent(eval_design(externaldesign, ~., 0.2, blocking = TRUE))
+  expect_silent(eval_design(externaldesign2, ~., 0.2, blocking = TRUE))
+  expect_silent(eval_design(externaldesign3, ~., 0.2, blocking = TRUE))
 
   #test timer
   expect_output(gen_design(candlist3, ~Location, trials = 6, timer = TRUE) -> temp)
@@ -138,21 +135,21 @@ test_that("gen_design example code runs without errors", {
   #test interaction between whole and subplots
 
   expect_silent(gen_design(candlist3, ~Location, trials = 6) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate + Location:Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6)) -> temp2)
-  expect_silent(gen_design(candlist3, ~Location + Climate + Location * Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6)) -> temp2)
+  expect_silent(gen_design(candlist3, ~Location + Climate + Location:Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6)) -> temp2)
+  expect_silent(gen_design(candlist3, ~Location + Climate + Location * Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6)) -> temp2)
 
   #test parallel features
 
   options(cores = 2)
 
   expect_silent(gen_design(candlist3, ~Location, trials = 6, parallel = TRUE) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6), parallel = TRUE) -> temp)
+  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6), parallel = TRUE) -> temp)
   expect_output({gen_design(candlist3, ~Location, trials = 6, parallel = TRUE, timer = TRUE) -> temp}, "Estimated time to completion")
-  expect_output({gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6), parallel = TRUE, timer = TRUE) -> temp}, "Estimated time to completion")
+  expect_output({gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6), parallel = TRUE, timer = TRUE) -> temp}, "Estimated time to completion")
   expect_silent(gen_design(candlist3, ~Location, trials = 6, parallel = TRUE) -> temp)
-  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, splitplotsizes = rep(2, 6), parallel = TRUE) -> temp2)
+  expect_silent(gen_design(candlist3, ~Location + Climate, trials = 12, splitplotdesign = temp, blocksizes = rep(2, 6), parallel = TRUE) -> temp2)
   expect_output({gen_design(candlist3, ~Location, trials = 18, parallel = TRUE, timer = TRUE) -> temp}, "Estimated time to completion")
-  expect_output({gen_design(candlist3, ~Location + Climate, trials = 54, splitplotdesign = temp, splitplotsizes = rep(3, 18), parallel = TRUE, timer = TRUE) -> temp2}, "Estimated time to completion")
+  expect_output({gen_design(candlist3, ~Location + Climate, trials = 54, splitplotdesign = temp, blocksizes = rep(3, 18), parallel = TRUE, timer = TRUE) -> temp2}, "Estimated time to completion")
   expect_silent(eval_design_mc(temp, ~., 0.2, nsim = 10, parallel = TRUE))
   expect_silent(eval_design_mc(temp2, ~., 0.2, nsim = 10, parallel = TRUE))
   expect_silent(eval_design_mc(temp, ~., 0.2, nsim = 10, glmfamily = "poisson", effectsize = c(1, 10), parallel = TRUE))
@@ -236,10 +233,14 @@ test_that("eval_design example code runs without errors", {
   #'#the run-to-run error.
   expect_silent(eval_design(coffeefinaldesign,  model = ~cost + size + type + caffeine, alpha = 0.2, blocking = TRUE,
               varianceratio = 2))
+
+  expect_silent(eval_design(coffeefinaldesign,  model = ~cost + size + type + caffeine, alpha = 0.2, blocking = TRUE,
+                             varianceratio = c(2, 1)))
 })
 
 
 test_that("eval_design_mc example code runs without errors", {
+  set.seed(123)
   #'@examples #We first generate a full factorial design using expand.grid:
   factorialcoffee = expand.grid(cost = c(-1, 1),
                                 type = as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
@@ -273,13 +274,22 @@ test_that("eval_design_mc example code runs without errors", {
                                 size = as.factor(c("Short", "Grande", "Venti")))
 
   vhtcdesign = gen_design(candidateset = factorialcoffee, model = ~Store, trials = 8)
-  htcdesign = gen_design(candidateset = factorialcoffee, model = ~Store + Temp, trials = 24, splitplotdesign = vhtcdesign, splitplotsizes = 3)
+  htcdesign = gen_design(candidateset = factorialcoffee, model = ~Store + Temp, trials = 24, splitplotdesign = vhtcdesign, blocksizes = 3)
   expect_silent({
     splitplotdesign = gen_design(candidateset = factorialcoffee, model = ~Store + Temp + cost + type + size, trials = 96,
-                               splitplotdesign = htcdesign, splitplotsizes = 4)
+                               splitplotdesign = htcdesign, blocksizes = 4, varianceratio = 3)
   })
-  expect_warning(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
+  expect_silent(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
+                                nsim = 1, glmfamily = "gaussian", varianceratios = c(5, 4)))
+  expect_silent(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
+                               nsim = 1, glmfamily = "gaussian", varianceratios = c(5, 4)))
+  expect_error(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
+                                nsim = 1, glmfamily = "gaussian", varianceratios = c(5, 4, 2, 2)),"Wrong number of variance ratios specified.")
+  expect_silent(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
                                 nsim = 1, glmfamily = "gaussian", varianceratios = c(5, 4, 2)))
+  expect_silent(eval_design_mc(design = splitplotdesign, model = ~Store + Temp + cost + type + size, alpha = 0.05, blocking = TRUE,
+                                nsim = 1, glmfamily = "gaussian", varianceratios = c(5, 4)))
+
   factorialbinom = expand.grid(a = c(-1, 1), b = c(-1, 1))
   expect_silent({
     designbinom = gen_design(factorialbinom, model = ~a + b, trials = 90, optimality = "D", repeats = 100)

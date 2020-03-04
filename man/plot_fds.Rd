@@ -4,17 +4,33 @@
 \alias{plot_fds}
 \title{Fraction of Design Space Plot}
 \usage{
-plot_fds(genoutput, model = NULL, continuouslength = 11)
+plot_fds(
+  genoutput,
+  model = NULL,
+  continuouslength = 31,
+  plot = TRUE,
+  yaxis_max = NULL,
+  description = "Fraction of Design Space"
+)
 }
 \arguments{
-\item{genoutput}{The design, or the output of the power evaluation functions.}
+\item{genoutput}{The design, or the output of the power evaluation functions. This can also be a list
+of several designs, which will result in all of them being plotted in a row (for easy comparison).}
 
-\item{model}{The model, by default uses the model used in eval_design or gen_design.}
+\item{model}{Default `NULL`. The model, if `NULL` it defaults to the model used in `eval_design` or `gen_design`.}
 
-\item{continuouslength}{Default 9. The precision of the continuous variables.}
+\item{continuouslength}{Default `31`. The precision of the continuous variables. Decrease for faster (but less precise) plotting.}
+
+\item{plot}{Default `TRUE`. Whether to plot the FDS, or just calculate the cumulative distribution function.}
+
+\item{yaxis_max}{Default `NULL`. Manually set the maximum value of the prediction variance.}
+
+\item{description}{Default `Fraction of Design Space`. The description to add to the plot. If a vector and multiple designs
+passed to genoutput, it will be the description for each plot.}
 }
 \value{
-Plots design diagnostics
+Plots design diagnostics, and invisibly returns the vector of values representing the fraction of design space plot. If multiple
+designs are passed, this will return a list of all FDS vectors.
 }
 \description{
 Creates a fraction of design space plot
