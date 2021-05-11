@@ -311,7 +311,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   #Variables used later: V, vinv, degrees_of_freedom, parameter_names
   if (blocking) {
     V = convert_rownames_to_covariance(run_matrix_processed, varianceratios, user_specified_varianceratio)
-    varianceratios = attr(V,"tempvar")
+    # varianceratios = attr(V,"tempvar")
     attr(run_matrix_processed,"tempvar") = NULL
     vinv = solve(V)
     #Below code detects the split-plot columns, and calculates the adjusted degrees of freedom for each term
@@ -335,7 +335,6 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     degrees_of_freedom = NULL
     parameter_names = NULL
   }
-
   factornames = attr(terms(model), "term.labels")
   levelvector = calculate_level_vector(run_matrix_processed, model, nointercept)
   effectresults = effectpower(run_matrix_processed, levelvector, anticoef,
@@ -382,11 +381,9 @@ eval_design = function(design, model = NULL, alpha = 0.05,
         amodel = aliasmodel(model, aliaspower)
         if (amodel != model) {
           aliasmatrix = suppressWarnings({
-            model.matrix(aliasmodel(model, aliaspower), design, contrasts.arg = contrastslist)[, -1]
+            model.matrix(aliasmodel(model, aliaspower), design, contrasts.arg = contrastslist_cormat)[, -1]
           })
-          A = solve(t(attr(run_matrix_processed, "modelmatrix")) %*%
-                      attr(run_matrix_processed, "modelmatrix")) %*%
-                    t(attr(run_matrix_processed, "modelmatrix")) %*% aliasmatrix
+          A = solve(t(modelmatrix_cor) %*% modelmatrix_cor) %*% t(modelmatrix_cor) %*% aliasmatrix
           attr(results, "alias.matrix") = A
           attr(results, "trA") = sum(diag(t(A) %*% A))
         } else {
@@ -408,7 +405,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   mm = gen_momentsmatrix(colnames(attr(run_matrix_processed, "modelmatrix")), levelvector, classvector)
 
   attr(results, "moment.matrix") = mm
-  attr(results, "A") = AOptimality(attr(run_matrix_processed, "modelmatrix"))
+  attr(results, "A") = AOptimality(modelmatrix_cor)
 
   if (!blocking) {
     attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor)) * varianceratios
@@ -417,7 +414,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     if(!is.infinite(deffic)) {
       attr(results, "D") =  100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
     } else {
-      attr(results, "D") =  100 * DOptimalityLog(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+      attr(results, "D") =  100 * exp(DOptimalityLog(modelmatrix_cor) / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
     }
   } else {
     attr(results, "z.matrix.list") = zlist
@@ -460,7 +457,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
       results$reordered_factors = NA
     }
     results_temp = results
-    sum_effect_power = sum(with(results_temp, power[type == "effect.power"]))
+    sum_effect_power = sum(with(results_temp, power[type == "effect.power"]), na.rm = TRUE)
     for(i in seq_len(ncol(design))) {
       if(is.factor(design[,i])) {
         number_factors = length(levels(design[,i]))
@@ -494,6 +491,9 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   }
   if(!inherits(results,"skpr_eval_output")) {
     class(results) = c("skpr_eval_output", class(results))
+  }
+  if(any(is.na(results$power))) {
+    warning("NA indicates not enough degrees of freedom to estimate power for those terms.")
   }
   return(results)
 }

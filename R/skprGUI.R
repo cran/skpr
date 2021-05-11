@@ -5,15 +5,15 @@
 #'@param inputValue1 Required by Shiny
 #'@param inputValue2 Required by Shiny
 #'
-#'@import shiny rintrojs shinythemes knitr kableExtra
+#'@import shiny rintrojs shinythemes gt
 #'@export
 #'@examples
 #'#Type `skprGUI()` to begin
 #'
 # nocov start
 skprGUI = function(inputValue1, inputValue2) {
-  b64 = base64enc::dataURI(file=system.file("shiny", "skprGUI","www", "idalogoblacksmaller.png", package = "skpr"),
-                            mime="image/png")
+  b64 = "data:image/png;base64,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"
+
 
   panelstyle = "background-color: rgba(86, 96, 133, 0.3);
   border-radius: 15px;
@@ -707,7 +707,10 @@ skprGUI = function(inputValue1, inputValue2) {
                                           checkboxInput(inputId = "parallel_eval_surv",
                                                         label = "Parallel Evaluation",
                                                         value = FALSE)
-                                        )
+                                        ),
+                                        checkboxInput(inputId = "colorblind",
+                                                      label = "Colorblind Palette",
+                                                      value = FALSE)
                                )
                              )
                 ),
@@ -716,31 +719,30 @@ skprGUI = function(inputValue1, inputValue2) {
                   column(width = 2),
                   column(width = 2, introBox(bookmarkButton(label = "Save State", title = "Generates a URL that encodes the current state of the application for easy sharing and saving of analyses. Paste this URL into a browser (possible changing the port and address if locally different) to restore the state of the application. Be sure to set a random seed before bookmarking to recover the same results."), class = "bookmark", data.step = 33, data.intro = "Generates a URL that encodes the current state of the application for easy sharing and saving of analyses. Paste this URL into a browser (possible changing the port and address if locally different) to restore the state of the application. Be sure to set a random seed before bookmarking to recover the same results.")),
                   column(width = 2, actionButton(inputId = "tutorial", "Tutorial", icon = icon("question-circle"))),
-                  column(width = 2, HTML(paste0("<div style='float:right; margin-top: 25px;'><img src=",b64,"\"></img></div>"))),
+                  column(width = 2, HTML(paste0("<div style='float:right; margin-top: 25px;'><img src=",b64,"></img></div>"))),
                   tags$style(type = "text/css", "#tutorial {margin-top: 25px;} .bookmark {margin-top: 25px;}")
                 ),
                 tabsetPanel(
                   tabPanel("Design",
-                           h2("Design"),
                            checkboxInput(inputId = "orderdesign", label = "Order Design", value = FALSE),
                            introBox(tableOutput(outputId = "runmatrix"), data.step = 25, data.intro = "The generated optimal design. If hard-to-change factors are present, there will be an additional blocking column specifying the block number. Here, we have generated a design with three factors and 12 runs."),
                            hr()
                   ),
                   tabPanel("Design Evaluation",
                            introBox(fluidRow(
-                             column(width = 6,
+                             column(width = 12,
                                     h2("Power Results"),
                                     conditionalPanel(
                                       condition = "input.evaltype == \'lm\'",
-                                      tableOutput(outputId = "powerresults")
+                                      gt_output(outputId = "powerresults")
                                     ),
                                     introBox(conditionalPanel(
                                       condition = "input.evaltype == \'glm\'",
-                                      tableOutput(outputId = "powerresultsglm")
+                                      gt_output(outputId = "powerresultsglm")
                                     ), data.step = 27, data.intro = "The power of the design. Output is a tidy data frame of the power and the type of evaluation for each parameter. If the evaluation type is parametric and there are 3+ level categorical factors, effect power will also be shown. Here, we have our GLM simulated power estimation."),
                                     conditionalPanel(
                                       condition = "input.evaltype == \'surv\'",
-                                      tableOutput(outputId = "powerresultssurv")
+                                      gt_output(outputId = "powerresultssurv")
                                     )
                              )
                            ), data.step = 26, data.intro = "This page shows the calculated/simulated power, as well as other design diagnostics. (results may take a second to appear)"),
@@ -1652,65 +1654,42 @@ skprGUI = function(inputValue1, inputValue2) {
       if (isolate(input$setseed)) {
         set.seed(isolate(input$seed))
       }
-      if (isolate(input$parallel)) {
-        showNotification("Searching (no progress bar with multicore on):", type = "message")
-      }
       tryCatch({
         if (!isblocking()) {
-          if (isolate(as.logical(input$parallel))) {
+          withProgress(message = "Generating design:", value = 0, min = 0, max = 1, expr = {
             design = gen_design(candidateset = isolate(expand.grid(candidatesetall())),
                        model = isolate(as.formula(input$model)),
                        trials = isolate(input$trials),
                        optimality = isolate(optimality()),
                        repeats = isolate(input$repeats),
-                       aliaspower = isolate(input$aliaspower),
-                       minDopt = isolate(input$mindopt),
-                       parallel = isolate(as.logical(input$parallel)))
-          } else {
-            design = withProgress(message = "Generating design:", value = 0, min = 0, max = 1, expr = {
-              gen_design(candidateset = isolate(expand.grid(candidatesetall())),
-                         model = isolate(as.formula(input$model)),
-                         trials = isolate(input$trials),
-                         optimality = isolate(optimality()),
-                         repeats = isolate(input$repeats),
-                         aliaspower = isolate(input$aliaspower),
-                         minDopt = isolate(input$mindopt),
-                         parallel = isolate(as.logical(input$parallel)),
-                         advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))})
-          }
-        } else {
-          spd = gen_design(candidateset = isolate(expand.grid(candidatesetall())),
-                           model = isolate(as.formula(blockmodel())),
-                           trials = isolate(input$numberblocks),
-                           optimality = ifelse(toupper(isolate(optimality())) == "ALIAS" && length(isolate(inputlist_htc())) == 1, "D", isolate(optimality())),
-                           repeats = isolate(input$repeats),
-                           varianceratio = isolate(input$varianceratio),
-                           aliaspower = isolate(input$aliaspower),
-                           minDopt = isolate(input$mindopt),
-                           parallel = isolate(as.logical(input$parallel)))
-          if (isolate(input$trials) %% isolate(input$numberblocks) == 0) {
-            sizevector = isolate(input$trials) / isolate(input$numberblocks)
-          } else {
-            sizevector = c(rep(ceiling(isolate(input$trials) / isolate(input$numberblocks)), isolate(input$numberblocks)))
-            unbalancedruns = ceiling(isolate(input$trials) / isolate(input$numberblocks)) * isolate(input$numberblocks) - isolate(input$trials)
-            sizevector[(length(sizevector) - unbalancedruns + 1):length(sizevector)] = sizevector[(length(sizevector) - unbalancedruns + 1):length(sizevector)] - 1
-          }
-          if (isolate(as.logical(input$parallel))) {
-            design = gen_design(candidateset = isolate(expand.grid(candidatesetall())),
-                       model = isolate(as.formula(input$model)),
-                       trials = isolate(input$trials),
-                       splitplotdesign = spd,
-                       blocksizes = sizevector,
-                       optimality = isolate(optimality()),
-                       repeats = isolate(input$repeats),
-                       varianceratio = isolate(input$varianceratio),
                        aliaspower = isolate(input$aliaspower),
                        minDopt = isolate(input$mindopt),
                        parallel = isolate(as.logical(input$parallel)),
-                       add_blocking_columns = isolate(input$splitanalyzable))
-          } else {
-            design = withProgress(message = "Generating design", value = 0, min = 0, max = 1, expr = {
-              gen_design(candidateset = isolate(expand.grid(candidatesetall())),
+                       advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))
+          })
+        } else {
+          withProgress(message = "Generating whole-plots:", value = 0, min = 0, max = 1, expr = {
+            spd = gen_design(candidateset = isolate(expand.grid(candidatesetall())),
+                             model = isolate(as.formula(blockmodel())),
+                             trials = isolate(input$numberblocks),
+                             optimality = ifelse(toupper(isolate(optimality())) == "ALIAS" &&
+                                                   length(isolate(inputlist_htc())) == 1, "D", isolate(optimality())),
+                             repeats = isolate(input$repeats),
+                             varianceratio = isolate(input$varianceratio),
+                             aliaspower = isolate(input$aliaspower),
+                             minDopt = isolate(input$mindopt),
+                             parallel = isolate(as.logical(input$parallel)),
+                             advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))
+            if (isolate(input$trials) %% isolate(input$numberblocks) == 0) {
+              sizevector = isolate(input$trials) / isolate(input$numberblocks)
+            } else {
+              sizevector = c(rep(ceiling(isolate(input$trials) / isolate(input$numberblocks)), isolate(input$numberblocks)))
+              unbalancedruns = ceiling(isolate(input$trials) / isolate(input$numberblocks)) * isolate(input$numberblocks) - isolate(input$trials)
+              sizevector[(length(sizevector) - unbalancedruns + 1):length(sizevector)] = sizevector[(length(sizevector) - unbalancedruns + 1):length(sizevector)] - 1
+            }
+          })
+          withProgress(message = "Generating full design:", value = 0, min = 0, max = 1, expr = {
+              design = gen_design(candidateset = isolate(expand.grid(candidatesetall())),
                          model = isolate(as.formula(input$model)),
                          trials = isolate(input$trials),
                          splitplotdesign = spd,
@@ -1722,8 +1701,8 @@ skprGUI = function(inputValue1, inputValue2) {
                          minDopt = isolate(input$mindopt),
                          parallel = isolate(as.logical(input$parallel)),
                          add_blocking_columns = isolate(input$splitanalyzable),
-                         advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))})
-          }
+                         advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))
+          })
         }
       }, finally = {
         shinyjs::enable("evalbutton")
@@ -1737,19 +1716,56 @@ skprGUI = function(inputValue1, inputValue2) {
       isolate(input$evaltype)
     })
 
+    format_table = function(powerval, display_table, alpha, nsim, colorblind) {
+      color_bad = "red"
+      color_maybe = "yellow"
+      if(colorblind) {
+        color_bad = "purple"
+        color_maybe = "orange"
+      }
+      display_table = display_table %>%
+        data_color(columns = "power",
+                   colors = scales::col_numeric(palette =colorRampPalette(c("white", "darkgreen"))(100),
+                                                domain =c(0,1)),
+                   alpha = 0.3,
+                   autocolor_text = FALSE) %>%
+        tab_options(table.width = pct(100))
+      if(any(powerval$power <= alpha + 1/sqrt(nsim) &
+             powerval$power >= alpha - 1/sqrt(nsim))) {
+        display_table = display_table %>%
+          tab_style(
+            style = list(
+              cell_fill(color = color_maybe,alpha=0.3)
+            ),
+            locations = cells_body(
+              columns = "power",
+              rows = power <= alpha + 1/sqrt(nsim))
+          ) %>%
+          tab_source_note(
+            source_note = sprintf("Note: Power values marked in %s are within the simulation uncertainty for user-specified Type-I error (increase the number of simulations)",
+                                  color_maybe)
+          )
+      }
+      if(any(powerval$power < alpha - 1/sqrt(nsim))) {
+        display_table = display_table %>%
+          tab_style(
+            style = list(
+              cell_fill(color = color_bad,alpha=0.3)
+            ),
+            locations = cells_body(
+              columns = "power",
+              rows = (power < alpha - 1/sqrt(nsim)))
+          ) %>%
+          tab_source_note(
+            source_note = sprintf("Note: Power values marked in %s fall below the user-specified Type-I error (%0.2f)",
+                                  color_bad, alpha)
+          )
+      }
+      return(display_table)
+    }
+
     powerresults = reactive({
       input$evalbutton
-      power_color = function(powercol, alphaval = 0.2) {
-        colorvalues = cut(c(0,1,powercol), 10, labels = FALSE)[-(1:2)]
-        powercol = unlist(lapply(powercol,sprintf,fmt = "%.3f"))
-        colorvals = paste0("rgba(",
-                           apply(t(col2rgb(hcl(h = 250, c = seq(10,50,length.out = 10), l = seq(100,20,length.out = 10)))), 1,  paste0, collapse = ", ")
-                           ,", 0.4)")
-        cell_spec(powercol, "html", background =  colorvals[colorvalues], background_as_tile = FALSE)
-      }
-      white_color = function(othercol, alphaval = 0.2) {
-        cell_spec(othercol, "html", background = "rgba(255, 255, 255, 1)", background_as_tile = FALSE)
-      }
       if (evaluationtype() == "lm") {
         powerval = eval_design(design = isolate(runmatrix()),
                     model = as.formula(isolate(input$model)),
@@ -1758,35 +1774,17 @@ skprGUI = function(inputValue1, inputValue2) {
                     effectsize = isolate(effectsize()),
                     conservative = isolate(input$conservative),
                     detailedoutput = isolate(input$detailedoutput))
-        powerval[,!(colnames(powerval) %in% "power")] = lapply(powerval[,!(colnames(powerval) %in% "power")], white_color)
-        powerval[,colnames(powerval) == "power"] = power_color(powerval[,colnames(powerval) == "power"])
-        prelimhtml = kable_styling(knitr::kable(powerval, "html",
-                                                row.names = TRUE, escape = FALSE, align = "r"), "striped",
-                                   full_width = FALSE, position = "left")
-        gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2",
-             x = prelimhtml, perl = TRUE)
+        powerval
       }
     })
     powerresultsglm = reactive({
       input$evalbutton
-      power_color = function(powercol, alphaval = 0.2) {
-        colorvalues = cut(c(0,1,powercol), 10, labels = FALSE)[-(1:2)]
-        powercol = unlist(lapply(powercol,sprintf,fmt = "%.3f"))
-        colorvals = paste0("rgba(",
-                           apply(t(col2rgb(hcl(h = 250, c = seq(10,50,length.out = 10), l = seq(100,20,length.out = 10)))), 1,  paste0, collapse = ", ")
-                           ,", 0.4)")
-        cell_spec(powercol, "html", background =  colorvals[colorvalues], background_as_tile = FALSE)
-      }
-      white_color = function(othercol, alphaval = 0.2) {
-        cell_spec(othercol, "html", background = "rgba(255, 255, 255, 1)", background_as_tile = FALSE)
-      }
       if (isolate(evaluationtype()) == "glm") {
         if (isolate(input$setseed)) {
           set.seed(isolate(input$seed))
         }
-        if (isolate(input$parallel_eval_glm)) {
-          showNotification("Simulating (no progress bar with multicore on):", type = "message")
-          powerval = eval_design_mc(design = isolate(runmatrix()),
+        withProgress(message = ifelse(isolate(isblocking()), "Simulating (with REML):", "Simulating:"), value = 0, min = 0, max = 1, expr = {
+          powerval = suppressWarnings(eval_design_mc(design = isolate(runmatrix()),
                          model = isolate(as.formula(input$model)),
                          alpha = isolate(input$alpha),
                          blocking = isolate(isblocking()),
@@ -1796,52 +1794,13 @@ skprGUI = function(inputValue1, inputValue2) {
                          effectsize = isolate(effectsize()),
                          parallel = isolate(input$parallel_eval_glm),
                          detailedoutput = isolate(input$detailedoutput),
-                         advancedoptions = list(GUI = TRUE))
-
-          powerval[,!(colnames(powerval) %in% "power")] = lapply(powerval[,!(colnames(powerval) %in% "power")], white_color)
-          powerval[,colnames(powerval) == "power"] = power_color(powerval[,colnames(powerval) == "power"])
-          prelimhtml = kable_styling(knitr::kable(powerval, "html",
-                                                  row.names = TRUE, escape = FALSE, align = "r"), "striped",
-                                     full_width = FALSE, position = "left")
-          list(gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2",
-               x = prelimhtml, perl = TRUE),powerval)
-        } else {
-          withProgress(message = ifelse(isolate(isblocking()), "Simulating (with REML):", "Simulating:"), value = 0, min = 0, max = 1, expr = {
-            powerval = eval_design_mc(design = isolate(runmatrix()),
-                           model = isolate(as.formula(input$model)),
-                           alpha = isolate(input$alpha),
-                           blocking = isolate(isblocking()),
-                           nsim = isolate(input$nsim),
-                           varianceratios = isolate(input$varianceratio),
-                           glmfamily = isolate(input$glmfamily),
-                           effectsize = isolate(effectsize()),
-                           parallel = isolate(input$parallel_eval_glm),
-                           detailedoutput = isolate(input$detailedoutput),
-                           advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))})
-
-          powerval[,!(colnames(powerval) %in% "power")] = lapply(powerval[,!(colnames(powerval) %in% "power")], white_color)
-          powerval[,colnames(powerval) == "power"] = power_color(powerval[,colnames(powerval) == "power"])
-          prelimhtml = kable_styling(knitr::kable(powerval, "html",
-                                                  row.names = TRUE, escape = FALSE, align = "r"), "striped",
-                                     full_width = FALSE, position = "left")
-          list(gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2",
-               x = prelimhtml, perl = TRUE),powerval)
-        }
+                         advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session)))
+          })
+        powerval
       }
     })
     powerresultssurv = reactive({
       input$evalbutton
-      power_color = function(powercol, alphaval = 0.2) {
-        colorvalues = cut(c(0,1,powercol), 10, labels = FALSE)[-(1:2)]
-        powercol = unlist(lapply(powercol,sprintf,fmt = "%.3f"))
-        colorvals = paste0("rgba(",
-                           apply(t(col2rgb(hcl(h = 250, c = seq(10,50,length.out = 10), l = seq(100,20,length.out = 10)))), 1,  paste0, collapse = ", ")
-                           ,", 0.4)")
-        cell_spec(powercol, "html", background =  colorvals[colorvalues], background_as_tile = FALSE)
-      }
-      white_color = function(othercol, alphaval = 0.2) {
-        cell_spec(othercol, "html", background = "rgba(255, 255, 255, 1)", background_as_tile = FALSE)
-      }
       if (isolate(evaluationtype()) == "surv") {
         if (isolate(input$setseed)) {
           set.seed(isolate(input$seed))
@@ -1849,111 +1808,110 @@ skprGUI = function(inputValue1, inputValue2) {
         if (isolate(isblocking())) {
           print("Hard-to-change factors are not supported for survival designs. Evaluating design with no blocking.")
         }
-        if (isolate(input$parallel_eval_surv)) {
-          showNotification("Simulating (no progress bar with multicore on):", type = "message")
-          powerval = eval_design_survival_mc(design = isolate(runmatrix()),
+        withProgress(message = "Simulating:", value = 0, min = 0, max = 1, expr = {
+          powerval = suppressWarnings(eval_design_survival_mc(design = isolate(runmatrix()),
                                   model = isolate(as.formula(input$model)),
                                   alpha = isolate(input$alpha),
-                                  nsim = isolate(input$nsim),
+                                  nsim = isolate(input$nsim_surv),
                                   censorpoint = isolate(input$censorpoint),
                                   censortype = isolate(input$censortype),
                                   distribution = isolate(input$distribution),
                                   effectsize = isolate(effectsize()),
                                   detailedoutput = isolate(input$detailedoutput),
-                                  parallel = isolate(input$parallel_eval_surv))
-          powerval[,!(colnames(powerval) %in% "power")] = lapply(powerval[,!(colnames(powerval) %in% "power")], white_color)
-          powerval[,colnames(powerval) == "power"] = power_color(powerval[,colnames(powerval) == "power"])
-          prelimhtml = kable_styling(knitr::kable(powerval, "html",
-                                                  row.names = TRUE, escape = FALSE, align = "r"), "striped",
-                                     full_width = FALSE, position = "left")
-          list(gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2",
-               x = prelimhtml, perl = TRUE),powerval)
-        } else {
-          withProgress(message = "Simulating:", value = 0, min = 0, max = 1, expr = {
-            powerval = eval_design_survival_mc(design = isolate(runmatrix()),
-                                    model = isolate(as.formula(input$model)),
-                                    alpha = isolate(input$alpha),
-                                    nsim = isolate(input$nsim),
-                                    censorpoint = isolate(input$censorpoint),
-                                    censortype = isolate(input$censortype),
-                                    distribution = isolate(input$distribution),
-                                    effectsize = isolate(effectsize()),
-                                    detailedoutput = isolate(input$detailedoutput),
-                                    advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session))
-            powerval[,!(colnames(powerval) %in% "power")] = lapply(powerval[,!(colnames(powerval) %in% "power")], white_color)
-            powerval[,colnames(powerval) == "power"] = power_color(powerval[,colnames(powerval) == "power"])
-            prelimhtml = kable_styling(knitr::kable(powerval, "html",
-                                                    row.names = TRUE, escape = FALSE, align = "r"), "striped",
-                                       full_width = FALSE, position = "left")
-            list(gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2",
-                 x = prelimhtml, perl = TRUE),powerval)
-          })
-        }
+                                  advancedoptions = list(GUI = TRUE, progressBarUpdater = inc_progress_session)))
+          powerval
+        })
       }
     })
 
-
-    output$runmatrix = function() {
-
-      spec_color_if = function(dfcol, alphaval = 0.2) {
-        if (is.numeric(dfcol)) {
-          colorvalues = cut(dfcol, 11, labels = FALSE)
-          cell_spec(dfcol, "html", background = spec_color(1:11, alpha = alphaval, option = input$colorchoice)[colorvalues], background_as_tile = FALSE)
-        } else {
-          dfcolfact = as.factor(dfcol)
-          cell_spec(dfcol, "html", background = spec_color(1:length(unique(dfcol)), alpha = alphaval, option = input$colorchoice)[as.numeric(dfcolfact)], background_as_tile = FALSE)
-        }
-      }
-
-      if (input$colorchoice != "none") {
-        if (input$orderdesign) {
-          if (ncol(runmatrix()) > 1) {
-            runmatrixprocessed = lapply(runmatrix(), spec_color_if)
-            prelimhtml = kable_styling(knitr::kable(as.data.frame(runmatrixprocessed)[do.call(order, runmatrix()), ], "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-            gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
-          } else {
-            rownumbers = order(runmatrix()[, 1])
-            runreturn = list(runmatrix()[order(runmatrix()[, 1]), ])
-            names(runreturn) = input$factorname1
-            runmatrixprocessed = data.frame(runreturn)
-            runmatrixprocessed = as.data.frame(lapply(runmatrixprocessed, spec_color_if))
-            rownames(runmatrixprocessed) = rownumbers
-            prelimhtml = kable_styling(knitr::kable(runmatrixprocessed, "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-            gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
-          }
-        } else {
-          runmatrixprocessed = lapply(runmatrix(), spec_color_if)
-          prelimhtml = kable_styling(knitr::kable(as.data.frame(runmatrixprocessed), "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-          gsub("(text-align:right;)(.+)(background-color: rgba\\(.+\\) \\!important;)", replacement = "\\1 \\3 \\2", x = prelimhtml, perl = TRUE)
-        }
+    pal_option = function(n) {
+      if(input$colorchoice == "A") {
+        viridis::magma(n)
+      } else if(input$colorchoice == "B") {
+        viridis::inferno(n)
+      } else if(input$colorchoice == "C") {
+        viridis::plasma(n)
+      } else if(input$colorchoice == "D") {
+        viridis::viridis(n)
       } else {
-        if (input$orderdesign) {
-          if (ncol(runmatrix()) > 1) {
-            kable_styling(knitr::kable(as.data.frame(runmatrix())[do.call(order, runmatrix()), ], "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-          } else {
-            rownumbers = order(runmatrix()[, 1])
-            runreturn = list(runmatrix()[order(runmatrix()[, 1]), ])
-            names(runreturn) = input$factorname1
-            runmatrixprocessed = data.frame(runreturn)
-            rownames(runmatrixprocessed) = rownumbers
-            kable_styling(knitr::kable(runmatrixprocessed, "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-          }
-        } else {
-          kable_styling(knitr::kable(runmatrix(), "html", row.names = TRUE, escape = FALSE, align = "r"), "striped", full_width = FALSE, position = "left")
-        }
+        "white"
       }
     }
 
-    output$powerresults = function() {
-      powerresults()
-    }
-    output$powerresultsglm = function() {
-      powerresultsglm()[[1]]
+    style_matrix = function(runmat, order_vals = FALSE, alpha = 0.3, trials, optimality) {
+      . = NULL
+      if(order_vals) {
+        new_runmat = runmat[do.call(order, runmat),, drop=FALSE ]
+        rownames(new_runmat) = 1:nrow(new_runmat)
+
+        display_rm = gt(new_runmat[do.call(order, new_runmat),, drop=FALSE ],
+                            rownames_to_stub = TRUE) %>%
+          tab_stubhead("Run") %>%
+          tab_options(data_row.padding = px(10))  %>%
+          tab_spanner(
+            label = "Factors",
+            columns = colnames(.)
+          ) %>% tab_header(
+            title = "Design",
+            subtitle = sprintf("%d-run %s-optimal design",
+                               trials,
+                               optimality)
+          )
+      } else {
+        display_rm = gt(runmat,rownames_to_stub = TRUE) %>%
+          tab_stubhead("Run") %>%
+          tab_options(data_row.padding = px(10)) %>%
+          tab_spanner(
+            label = "Factors",
+            columns = colnames(.)
+          ) %>% tab_header(
+            title = "Design",
+            subtitle = sprintf("%d-run %s-optimal design",
+                               trials,
+                               optimality)
+          )
+      }
+      cols_rm = colnames(runmat)
+      for(i in seq_len(length(cols_rm))) {
+        if(is.numeric(runmat[,i])) {
+          display_rm = display_rm %>%
+            data_color(
+              columns = cols_rm[i],
+              colors = pal_option(100),
+              alpha = alpha,
+              autocolor_text = FALSE)
+        } else {
+          display_rm = display_rm %>%
+            data_color(
+              columns = cols_rm[i],
+              colors = pal_option(length(unique(runmat[,i]))),
+              alpha = alpha,
+              autocolor_text = FALSE)
+        }
+      }
+      display_rm
     }
 
-    output$powerresultssurv = function() {
-      powerresultssurv()[[1]]
-    }
+    output$runmatrix = gt::render_gt({
+      style_matrix(runmatrix(), order_vals = input$orderdesign,  trials = isolate(input$trials), optimality = isolate(input$optimality))
+    }, align = "left")
+
+    output$powerresults = gt::render_gt( {
+      req(powerresults())
+      format_table(powerresults(),gt(powerresults()), isolate(input$alpha),isolate(input$nsim),isolate(input$colorblind))
+    }, align = "left")
+
+    output$powerresultsglm = gt::render_gt( {
+      req(powerresultsglm())
+
+      format_table(powerresultsglm(),gt(powerresultsglm()), isolate(input$alpha),isolate(input$nsim),isolate(input$colorblind))
+    }, align = "left")
+
+    output$powerresultssurv = gt::render_gt({
+      req(powerresultssurv())
+
+      format_table(powerresultssurv(),gt(powerresultssurv()), isolate(input$alpha),isolate(input$nsim_surv),isolate(input$colorblind))
+    }, align = "left")
 
     output$aliasplot = renderPlot({
       input$submitbutton
@@ -2022,23 +1980,23 @@ skprGUI = function(inputValue1, inputValue2) {
     output$simulatedpvalues = renderPlot({
       updateval = c(powerresultsglm(),powerresultssurv())
       if(isolate(evaluationtype() == "glm")) {
-        pvalrows = isolate(floor(ncol(attr(powerresultsglm()[[2]], "pvals")) / 3) + 1)
-        if (!is.null(attr(powerresultsglm()[[2]], "pvals"))) {
+        pvalrows = isolate(floor(ncol(attr(powerresultsglm(), "pvals")) / 3) + 1)
+        if (!is.null(attr(powerresultsglm(), "pvals"))) {
           par(mfrow = c(pvalrows, 3))
-          for (col in 1:isolate(ncol(attr(powerresultsglm()[[2]], "pvals")))) {
-            isolate(hist(attr(powerresultsglm()[[2]], "pvals")[, col], breaks = seq(0, 1, 0.05),
-                         main = colnames(attr(powerresultsglm()[[2]], "pvals"))[col],
+          for (col in 1:isolate(ncol(attr(powerresultsglm(), "pvals")))) {
+            isolate(hist(attr(powerresultsglm(), "pvals")[, col], breaks = seq(0, 1, 0.05),
+                         main = colnames(attr(powerresultsglm(), "pvals"))[col],
                          xlim = c(0, 1), xlab = "p values", ylab = "Count", col = "red", pch = 16))
           }
         }
       }
       if(isolate(evaluationtype() == "surv")) {
-        pvalrows = isolate(floor(ncol(attr(powerresultssurv()[[2]], "pvals")) / 3) + 1)
-        if (!is.null(attr(powerresultssurv()[[2]], "pvals"))) {
+        pvalrows = isolate(floor(ncol(attr(powerresultssurv(), "pvals")) / 3) + 1)
+        if (!is.null(attr(powerresultssurv(), "pvals"))) {
           par(mfrow = c(pvalrows, 3))
-          for (col in 1:isolate(ncol(attr(powerresultssurv()[[2]], "pvals")))) {
-            isolate(hist(attr(powerresultssurv()[[2]], "pvals")[, col], breaks = seq(0, 1, 0.05),
-                         main = colnames(attr(powerresultssurv()[[2]], "pvals"))[col],
+          for (col in 1:isolate(ncol(attr(powerresultssurv(), "pvals")))) {
+            isolate(hist(attr(powerresultssurv(), "pvals")[, col], breaks = seq(0, 1, 0.05),
+                         main = colnames(attr(powerresultssurv(), "pvals"))[col],
                          xlim = c(0, 1), xlab = "p values", ylab = "Count", col = "red", pch = 16))
           }
         }
@@ -2046,9 +2004,9 @@ skprGUI = function(inputValue1, inputValue2) {
     })
     output$parameterestimates = renderPlot({
       input$evalbutton
-      if (!is.null(attr(powerresultsglm()[[2]], "estimates"))) {
-        ests = apply(attr(powerresultsglm()[[2]], "estimates"), 2, quantile, c(0.05, 0.5, 0.95))
-        truth = attr(powerresultsglm()[[2]], "anticoef")
+      if (!is.null(attr(powerresultsglm(), "estimates"))) {
+        ests = apply(attr(powerresultsglm(), "estimates"), 2, quantile, c(0.05, 0.5, 0.95))
+        truth = attr(powerresultsglm(), "anticoef")
         if (isolate(input$glmfamily) == "binomial") {
           ests = exp(ests) / (1 + exp(ests))
           truth = exp(truth) / (1 + exp(truth))
@@ -2081,9 +2039,9 @@ skprGUI = function(inputValue1, inputValue2) {
 
     output$parameterestimatessurv = renderPlot({
       input$evalbutton
-      if (!is.null(attr(powerresultssurv()[[2]], "estimates"))) {
-        ests = apply(attr(powerresultssurv()[[2]], "estimates"), 2, quantile, c(0.05, 0.5, 0.95))
-        truth = attr(powerresultssurv()[[2]], "anticoef")
+      if (!is.null(attr(powerresultssurv(), "estimates"))) {
+        ests = apply(attr(powerresultssurv(), "estimates"), 2, quantile, c(0.05, 0.5, 0.95))
+        truth = attr(powerresultssurv(), "anticoef")
         if (isolate(input$distibution) == "exponential") {
           ests = exp(ests)
           truth = exp(truth)
@@ -2108,9 +2066,9 @@ skprGUI = function(inputValue1, inputValue2) {
 
     output$responsehistogram = renderPlot({
       input$evalbutton
-      if (!is.null(attr(powerresultsglm()[[2]], "estimates"))) {
-        responses = as.vector(attr(powerresultsglm()[[2]], "estimates") %*% t(attr(powerresultsglm()[[2]], "modelmatrix")))
-        trueresponses = as.vector(attr(powerresultsglm()[[2]], "anticoef") %*% t(attr(powerresultsglm()[[2]], "modelmatrix")))
+      if (!is.null(attr(powerresultsglm(), "estimates"))) {
+        responses = as.vector(attr(powerresultsglm(), "estimates") %*% t(attr(powerresultsglm(), "modelmatrix")))
+        trueresponses = as.vector(attr(powerresultsglm(), "anticoef") %*% t(attr(powerresultsglm(), "modelmatrix")))
         widths = hist(trueresponses, plot = FALSE)$counts
         widths = widths[widths != 0]
         widths = sqrt(widths)
@@ -2141,8 +2099,10 @@ skprGUI = function(inputValue1, inputValue2) {
         if (isolate(input$glmfamily) == "exponential") {
           responses = exp(responses)
           trueresponses = exp(trueresponses)
+
           par(mar = c(5.1, 4.1, 4.1, 8.1), xpd = TRUE)
-          hist(responses, breaks = breakvalues, xlab = "Response", main = "Distribution of Simulated Response Estimates", xlim = c(ifelse(is.na(input$estimatesxminglm), min(hist(responses, plot = FALSE)$breaks), input$estimatesxminglm), ifelse(is.na(input$estimatesxmaxglm), max(hist(responses, plot = FALSE)$breaks), input$estimatesxmaxglm)), col = "red", border = "red")
+          hist(responses, breaks = breakvalues, xlab = "Response", main = "Distribution of Simulated Response Estimates",
+               xlim = c(ifelse(is.na(input$estimatesxminglm), min(hist(responses, plot = FALSE)$breaks), input$estimatesxminglm), ifelse(is.na(input$estimatesxmaxglm), max(hist(responses, plot = FALSE)$breaks), input$estimatesxmaxglm)), col = "red", border = "red")
           legend("topright", inset = c(-0.2, 0), legend = c("Truth", "Simulated"), pch = c(16, 16), col = c("blue", "red"), title = "Estimates")
           par(mar = c(5.1, 4.1, 4.1, 8.1), xpd = FALSE)
           grid(nx = NA, ny = NULL)
@@ -2164,19 +2124,28 @@ skprGUI = function(inputValue1, inputValue2) {
 
     output$responsehistogramsurv = renderPlot({
       input$evalbutton
-      if (!is.null(attr(powerresultssurv()[[2]], "estimates"))) {
-        responses = as.vector(attr(powerresultssurv()[[2]], "estimates") %*% t(attr(powerresultssurv()[[2]], "modelmatrix")))
-        trueresponses = as.vector(attr(powerresultssurv()[[2]], "anticoef") %*% t(attr(powerresultssurv()[[2]], "modelmatrix")))
+      if (!is.null(attr(powerresultssurv(), "estimates"))) {
+        responses = as.vector(attr(powerresultssurv(), "estimates") %*% t(attr(powerresultssurv(), "modelmatrix")))
+        trueresponses = as.vector(attr(powerresultssurv(), "anticoef") %*% t(attr(powerresultssurv(), "modelmatrix")))
+        filtered_string = ""
+        if(isolate(input$distribution) == "exponential") {
+          #Filter out extreme values
+          mad_trueresp = 20*max(exp(trueresponses))
+          num_filtered = sum(exp(responses) > mad_trueresp)
+          responses = responses[exp(responses) < mad_trueresp]
+          trueresponses = trueresponses[exp(trueresponses) < mad_trueresp]
+          filtered_string = sprintf(" (%g extreme outliers removed)",num_filtered)
+        }
         widths = hist(trueresponses, plot = FALSE)$counts
         widths = widths[widths != 0]
         widths = sqrt(widths)
         uniquevalues = length(table(responses))
-        breakvalues = ifelse(uniquevalues < isolate(input$nsim) * isolate(input$trials) / 10, uniquevalues, isolate(input$nsim) * isolate(input$trials) / 10)
+        breakvalues = ifelse(uniquevalues < isolate(input$nsim_surv) * isolate(input$trials) / 10, uniquevalues, isolate(input$nsim_surv) * isolate(input$trials) / 10)
         if (isolate(input$distribution) == "exponential") {
           responses = exp(responses)
           trueresponses = exp(trueresponses)
           par(mar = c(5.1, 4.1, 4.1, 8.1), xpd = TRUE)
-          hist(responses, breaks = breakvalues, xlab = "Response", main = "Distribution of Simulated Response Estimates", xlim = c(ifelse(is.na(input$estimatesxminsurv), min(hist(responses, plot = FALSE)$breaks), input$estimatesxminsurv), ifelse(is.na(input$estimatesxmaxsurv), max(hist(responses, plot = FALSE)$breaks), input$estimatesxmaxsurv)), col = "red", border = "red")
+          hist(responses, breaks = breakvalues, xlab = "Response", main = sprintf("Distribution of Simulated Response Estimates%s", filtered_string), xlim = c(ifelse(is.na(input$estimatesxminsurv), min(hist(responses, plot = FALSE)$breaks), input$estimatesxminsurv), ifelse(is.na(input$estimatesxmaxsurv), max(hist(responses, plot = FALSE)$breaks), input$estimatesxmaxsurv)), col = "red", border = "red")
           legend("topright", inset = c(-0.2, 0), legend = c("Truth", "Simulated"), pch = c(16, 16), col = c("blue", "red"), title = "Estimates")
           par(mar = c(5.1, 4.1, 4.1, 8.1), xpd = FALSE)
           grid(nx = NA, ny = NULL)
@@ -2198,8 +2167,8 @@ skprGUI = function(inputValue1, inputValue2) {
       input$evalbutton
       likelyseparation = FALSE
       if (isolate(input$evaltype) == "glm" && isolate(input$glmfamily) == "binomial") {
-        if (!is.null(attr(powerresultsglm()[[2]], "pvals"))) {
-          pvalmat = attr(powerresultsglm()[[2]], "pvals")
+        if (!is.null(attr(powerresultsglm(), "pvals"))) {
+          pvalmat = attr(powerresultsglm(), "pvals")
           for (i in 2:ncol(pvalmat)) {
             pvalcount = hist(pvalmat[, i], breaks = seq(0, 1, 0.05), plot = FALSE)
             likelyseparation = likelyseparation || (all(pvalcount$count[20] > pvalcount$count[17:19]) && pvalcount$count[20] > isolate(input$nsim) / 15)

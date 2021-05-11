@@ -529,6 +529,10 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     effectpvallist = list()
     stderrlist = list()
     iterlist = list()
+    if(interactive()) {
+      pb = progress::progress_bar$new(format = "  Calculating Power [:bar] :percent ETA: :eta",
+                                      total = nsim, clear = TRUE, width= 60)
+    }
     power_values = rep(0, ncol(ModelMatrix))
     effect_power_values = c()
     for (j in 1:nsim) {
@@ -575,6 +579,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
               coef(summary(fit))[, 1]
             )
           )
+        } else {
+          estimates[j, ] = NA
         }
       } else {
         if (glmfamilyname == "gaussian") {
@@ -584,12 +590,24 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
           }
 
         } else {
-          fit = glm(model_formula, family = glmfamily, data = RunMatrixReduced, contrasts = contrastslist)
-          if (calceffect) {
+          tryCatch({
+            fit = suppressWarnings(suppressMessages({
+              glm(model_formula, family = glmfamily, data = RunMatrixReduced, contrasts = contrastslist)
+            }))
+          }, error = function(e) {
+            fiterror = TRUE
+          })
+          if (calceffect && !fiterror) {
             effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest)
           }
         }
-        estimates[j, ] = coef(fit)
+        if(!fiterror) {
+          estimates[j, ] = suppressWarnings(
+            suppressMessages(coef(fit)
+                             ))
+        } else {
+          estimates[j, ] = NA
+        }
       }
       if(!fiterror) {
         #determine whether beta[i] is significant. If so, increment nsignificant
@@ -611,6 +629,9 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         }
         power_values[pvals < alpha_parameter] = power_values[pvals < alpha_parameter] + 1
       }
+      if(interactive()) {
+        pb$tick()
+      }
     }
     #We are going to output a tidy data.frame with the results.
     attr(power_values, "pvals") = do.call(rbind, pvallist)
@@ -631,7 +652,9 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       numbercores = options("cores")[[1]]
     }
     cl = parallel::makeCluster(numbercores)
-    doParallel::registerDoParallel(cl, cores = numbercores)
+    doParallel::registerDoParallel(cl)
+    modelmat = model.matrix(model_formula, data=RunMatrixReduced,contrasts = contrastslist)
+
     tryCatch({
       power_estimates = foreach::foreach (j = 1:nsim, .combine = "rbind", .export = c("extractPvalues", "effectpowermc"), .packages = c("lme4", "lmerTest")) %dopar% {
         #simulate the data.
@@ -671,12 +694,26 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
               effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>F)")
             }
           } else {
-            fit = glm(model_formula, family = glmfamily, data = RunMatrixReduced, contrasts = contrastslist)
-            if (calceffect) {
+            tryCatch({
+              fit = suppressWarnings(
+                suppressMessages(
+                  glm(model_formula, family = glmfamily, data = RunMatrixReduced, contrasts = contrastslist)
+                )
+              )
+            }, error = function(e) {
+              fiterror = TRUE
+            })
+            if (calceffect && !fiterror) {
               effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>Chisq)", test.statistic = "Wald")
             }
           }
-          estimates = coef(fit)
+          if(!fiterror) {
+            estimates = suppressWarnings(
+              suppressMessages(coef(fit)
+              ))
+          } else {
+            estimates = rep(NA,ncol(modelmat))
+          }
         }
         if(!fiterror) {
           #determine whether beta[i] is significant. If so, increment nsignificant
@@ -790,7 +827,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     if(!is.infinite(deffic)) {
       attr(retval, "D") =  100 * DOptimality(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
     } else {
-      attr(retval, "D") =  100 * DOptimalityLog(modelmatrix_cor) ^ (1 / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
+      attr(retval, "D") =  100 * exp(DOptimalityLog(modelmatrix_cor) / ncol(modelmatrix_cor)) / nrow(modelmatrix_cor)
     }
   } else {
     attr(retval, "variance.matrix") = V
