@@ -1,4 +1,4 @@
-464c75d6aa9dbf5b860eaf711086f9ac *DESCRIPTION
+79899741745559639c2227c438702f02 *DESCRIPTION
 1b7fbd9649111fede28791b3659645dd *NAMESPACE
 88bcc117d119826688083f171e056e67 *NEWS
 b8ddfe67b35c5318cee7e5c54bdb7527 *R/RcppExports.R
@@ -17,15 +17,15 @@ b070e06bca6023290945eb4f479bc9d1 *R/calculate_split_columns.R
 f3d3b4bdddde06ceda501045cf628050 *R/calculatepower.R
 8970649ba3a19d95eca400f00a1e0b3d *R/constructRunMatrix.R
 4f8ab1bbcfe30559a03ed764496ce1cd *R/contr.simplex.R
-7b86fee31a7f99a68986a709cfd00cbb *R/convert_blockcolumn_rownames.R
+9aa1b29df1076753a27a2eb32d83cc40 *R/convert_blockcolumn_rownames.R
 e6a2d059002ed33696cf661297dcd39d *R/convert_model_dots.R
 a4a632851bd32274f0d19ff2d2eb1840 *R/convert_rownames_to_covariance.R
 5aa66db9e6ff40ca30be6709a691a0d6 *R/disallowed_combinations.R
 b36a55bb4dc26a25a47055542b0c9a4e *R/effectpower.R
 4b6052b303b49df6e8c764088411dc25 *R/effectpowermc.R
-63598a8578ed809ec58fa3dcf841c469 *R/eval_design.R
+9e6a8ab8ee56533b3d29b5172ddbb566 *R/eval_design.R
 d472fa308d25066adc3cfe827b40742d *R/eval_design_custom_mc.R
-b99b4f34da9e0c87337d5bd4e515f2c7 *R/eval_design_mc.R
+f2ff7f0e426400f146c2a42d5f1edbe4 *R/eval_design_mc.R
 45a00904045b3dd97be641c7f92bfbd3 *R/eval_design_survival_mc.R
 67e830630c666d5dcf2f25bb30eb3590 *R/extractPvalues.R
 d149c311819594e0c0c154dd46245b31 *R/gen_anticoef.R
@@ -60,6 +60,7 @@ c7509d844dee46d6c41ea07dc68bc91e *R/skprGUIserver.R
 a15802b3419bf7a2cf82534a7c5f19e9 *R/startupmessage.R
 e97aff1ebac8d69d02d9451cd5be2a2b *R/zzz.R
 f3ae170eb13ff87b624d294330a1281c *README.md
+2dbe116978b7b69b8bcfc23c14c0ffb5 *inst/CITATION
 34bafcd79168bd0ed8dbdc10dfeecbc0 *inst/shiny/skprGUI/global.R
 9572b779a0ca8ef5a67c94797aa149a6 *inst/shiny/skprGUI/server.R
 353314448ba83038fc7584b0a62e46fa *inst/shiny/skprGUI/ui.R
@@ -82,7 +83,7 @@ b8fa3975590f8dadc7d9ccdec2de9c75 *man/calculate_gefficiency.Rd
 167f88970f90d884e226762b2962d7a9 *man/calculatepower.Rd
 45896ffd2a1557ccead7d167abafd06a *man/constructRunMatrix.Rd
 12d6d13543d5f6d1f24dc137adefe7fd *man/contr.simplex.Rd
-d074c26a568544fa47eb74225ec2e26e *man/convert_blockcolumn_rownames.Rd
+9a42af9648366dc86bce129b1eb6232f *man/convert_blockcolumn_rownames.Rd
 83c6ea5d547a1917216872ac1e5b1875 *man/convert_model_dots.Rd
 555a883a3e50e2aa6a0a95ef48336767 *man/convert_rownames_to_covariance.Rd
 e1c77f291c672e8cc8166bc2559bb880 *man/disallowed_combinations.Rd
@@ -106,7 +107,7 @@ d3d83d47817adf214c5fa5ea96cf62e6 *man/gen_momentsmatrix.Rd
 7266a5c0d4fa1c73693c73ee88b3de0e *man/genhypmatrix.Rd
 6bffa4f7ec40abd41316eeef55d4e75f *man/genparammatrix.Rd
 6a828a9ce88d2891221fe98929342cd5 *man/get_attribute.Rd
-3c02fa2d1d3f6e35649df129400323bd *man/get_optimality.Rd
+7caccebe6920ad7cd7c65f3464eed480 *man/get_optimality.Rd
 2e34b0af9f2c74821873aaf1982e4e83 *man/is_intralayer_interaction.Rd
 fc39f1c055ef266484ed0c771caa10ec *man/normalize_numeric_runmatrix.Rd
 b42a61eeab9863d83dec1c91d431355b *man/parameterpower.Rd
@@ -138,7 +139,7 @@ aed9be547e413f05f80a5e268067ba33 *src/coord_exchange_functions.h
 2e6933042478caebfc751440d2c28f75 *src/optimalityfunctions.cpp
 03aee7f3d4bf95b5ccadf2d3cb3de7c8 *src/optimalityfunctions.h
 f7de9cb303e764e67cb21709459f9c46 *tests/testthat.R
-378f97c6e0c56d9ce40e572e0159940c *tests/testthat/Rplots.pdf
+661af325d1c16d63994676b061d2f8d6 *tests/testthat/Rplots.pdf
 f3c8e5ef7e82c2fb34c41e8ad77445a5 *tests/testthat/testDeltaProcessing.R
 f36cf25752002501c54673495b177d11 *tests/testthat/testExampleCode.R
 d85469c2eb5f2887cbb3f65348e91fd2 *tests/testthat/testExtractPvalues.R
