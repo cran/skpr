@@ -53,10 +53,6 @@ genOptimalDesign <- function(initialdesign, candidatelist, condition, momentsmat
     .Call(`_skpr_genOptimalDesign`, initialdesign, candidatelist, condition, momentsmatrix, initialRows, aliasdesign, aliascandidatelist, minDopt, tolerance, augmentedrows, kexchange)
 }
 
-genOptimalDesignCoord <- function(initialdesign, candidatelist, condition, momentsmatrix, initialRows, aliasdesign, aliascandidatelist, minDopt, tolerance, augmentedrows, kexchange) {
-    .Call(`_skpr_genOptimalDesignCoord`, initialdesign, candidatelist, condition, momentsmatrix, initialRows, aliasdesign, aliascandidatelist, minDopt, tolerance, augmentedrows, kexchange)
-}
-
 genSplitPlotOptimalDesign <- function(initialdesign, candidatelist, blockeddesign, condition, momentsmatrix, initialRows, blockedVar, aliasdesign, aliascandidatelist, minDopt, interactions, disallowed, anydisallowed, tolerance, kexchange) {
     .Call(`_skpr_genSplitPlotOptimalDesign`, initialdesign, candidatelist, blockeddesign, condition, momentsmatrix, initialRows, blockedVar, aliasdesign, aliascandidatelist, minDopt, interactions, disallowed, anydisallowed, tolerance, kexchange)
 }

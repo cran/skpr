@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // DOptimality
 double DOptimality(const Eigen::MatrixXd& currentDesign);
 RcppExport SEXP _skpr_DOptimality(SEXP currentDesignSEXP) {
@@ -165,27 +170,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// genOptimalDesignCoord
-List genOptimalDesignCoord(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& candidatelist, const std::string condition, const Eigen::MatrixXd& momentsmatrix, Eigen::VectorXd initialRows, Eigen::MatrixXd aliasdesign, const Eigen::MatrixXd& aliascandidatelist, double minDopt, double tolerance, int augmentedrows, int kexchange);
-RcppExport SEXP _skpr_genOptimalDesignCoord(SEXP initialdesignSEXP, SEXP candidatelistSEXP, SEXP conditionSEXP, SEXP momentsmatrixSEXP, SEXP initialRowsSEXP, SEXP aliasdesignSEXP, SEXP aliascandidatelistSEXP, SEXP minDoptSEXP, SEXP toleranceSEXP, SEXP augmentedrowsSEXP, SEXP kexchangeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Eigen::MatrixXd >::type initialdesign(initialdesignSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type candidatelist(candidatelistSEXP);
-    Rcpp::traits::input_parameter< const std::string >::type condition(conditionSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type momentsmatrix(momentsmatrixSEXP);
-    Rcpp::traits::input_parameter< Eigen::VectorXd >::type initialRows(initialRowsSEXP);
-    Rcpp::traits::input_parameter< Eigen::MatrixXd >::type aliasdesign(aliasdesignSEXP);
-    Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type aliascandidatelist(aliascandidatelistSEXP);
-    Rcpp::traits::input_parameter< double >::type minDopt(minDoptSEXP);
-    Rcpp::traits::input_parameter< double >::type tolerance(toleranceSEXP);
-    Rcpp::traits::input_parameter< int >::type augmentedrows(augmentedrowsSEXP);
-    Rcpp::traits::input_parameter< int >::type kexchange(kexchangeSEXP);
-    rcpp_result_gen = Rcpp::wrap(genOptimalDesignCoord(initialdesign, candidatelist, condition, momentsmatrix, initialRows, aliasdesign, aliascandidatelist, minDopt, tolerance, augmentedrows, kexchange));
-    return rcpp_result_gen;
-END_RCPP
-}
 // genSplitPlotOptimalDesign
 List genSplitPlotOptimalDesign(Eigen::MatrixXd initialdesign, Eigen::MatrixXd candidatelist, const Eigen::MatrixXd& blockeddesign, const std::string condition, const Eigen::MatrixXd& momentsmatrix, Eigen::VectorXi& initialRows, const Eigen::MatrixXd& blockedVar, Eigen::MatrixXd aliasdesign, Eigen::MatrixXd aliascandidatelist, double minDopt, List interactions, const Eigen::MatrixXd disallowed, const bool anydisallowed, double tolerance, int kexchange);
 RcppExport SEXP _skpr_genSplitPlotOptimalDesign(SEXP initialdesignSEXP, SEXP candidatelistSEXP, SEXP blockeddesignSEXP, SEXP conditionSEXP, SEXP momentsmatrixSEXP, SEXP initialRowsSEXP, SEXP blockedVarSEXP, SEXP aliasdesignSEXP, SEXP aliascandidatelistSEXP, SEXP minDoptSEXP, SEXP interactionsSEXP, SEXP disallowedSEXP, SEXP anydisallowedSEXP, SEXP toleranceSEXP, SEXP kexchangeSEXP) {
@@ -248,7 +232,6 @@ static const R_CallMethodDef CallEntries[] = {
     {"_skpr_getPseudoInverse", (DL_FUNC) &_skpr_getPseudoInverse, 1},
     {"_skpr_GEfficiency", (DL_FUNC) &_skpr_GEfficiency, 2},
     {"_skpr_genOptimalDesign", (DL_FUNC) &_skpr_genOptimalDesign, 11},
-    {"_skpr_genOptimalDesignCoord", (DL_FUNC) &_skpr_genOptimalDesignCoord, 11},
     {"_skpr_genSplitPlotOptimalDesign", (DL_FUNC) &_skpr_genSplitPlotOptimalDesign, 15},
     {"_skpr_genBlockedOptimalDesign", (DL_FUNC) &_skpr_genBlockedOptimalDesign, 12},
     {NULL, NULL, 0}
