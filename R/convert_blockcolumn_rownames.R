@@ -10,8 +10,8 @@ convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios,
                                         verbose = FALSE) {
   if (is.null(attr(RunMatrix, "splitanalyzable")) &&
       any(grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE)) ||
-      any(grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE))) {
-    blockcols = grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE) | grepl("(Whole Plots|Subplots)", colnames(RunMatrix), perl = TRUE)
+      any(grepl("(Whole Plots|Whole\\.Plots|Subplots)", colnames(RunMatrix), perl = TRUE))) {
+    blockcols = grepl("(Block|block)(\\s?)+[0-9]+$", colnames(RunMatrix), perl = TRUE) | grepl("(Whole Plots|Whole\\.Plots|Subplots)", colnames(RunMatrix), perl = TRUE)
     if (blocking) {
       if(verbose) {
         message("Detected externally generated blocking columns: attempting to interpret blocking structure.")
@@ -69,7 +69,7 @@ convert_blockcolumn_rownames = function(RunMatrix, blocking, varianceratios,
         varianceratios = varianceratios[-length(varianceratios)]
       }
       if (length(blockgroups) != length(varianceratios)) {
-        stop("Wrong number of variance ratios specified. ", length(varianceratios),
+        stop("skpr: Wrong number of variance ratios specified. ", length(varianceratios),
              " variance ratios given: c(",paste(varianceratios,collapse=", "), "), ", length(blockgroups) , " expected. Either specify value for all blocking levels or one ratio for all blocks other than then run-to-run variance.")
       }
       zlist = list()

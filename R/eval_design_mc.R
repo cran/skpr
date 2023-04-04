@@ -17,8 +17,12 @@
 #'@param nsim Default `1000`. The number of Monte Carlo simulations to perform.
 #'@param glmfamily Default `gaussian`. String indicating the family of distribution for the `glm` function
 #'("gaussian", "binomial", "poisson", or "exponential").
-#'@param calceffect Default `TRUE`. Calculates effect power for a Type-III Anova (using the car package) using a Wald test.
-#'this ratio can be a vector specifying the variance ratio for each subplot. Otherwise, it will use a single value for all strata.
+#'@param calceffect Default `TRUE`. Whether to calculate effect power. This calculation is more expensive than parameter power,
+#'so turned off (if not needed) can greatly speed up calculation time.
+#'@param effect_anova Default `TRUE`, whether to a Type-III Anova or a likelihood ratio test to calculate effect power.
+#'If `TRUE`, effect power will be calculated using a Type-III Anova (using the car package) and a Wald test. If `FALSE`,
+#'a likelihood ratio test (using a reduced model for each effect) will performed using the `lmtest` package. If `firth = TRUE`,
+#'this will be set to `FALSE` automatically.
 #'@param varianceratios Default `NULL`. The ratio of the whole plot variance to the run-to-run variance.
 #'If not specified during design generation, this will default to 1. For designs with more than one subplot
 #'this ratio can be a vector specifying the variance ratio for each subplot (comparing to the run-to-run variance).
@@ -28,13 +32,19 @@
 #'You only need to specify this if you do not like the default behavior described below.
 #'@param anticoef Default `NULL`.The anticipated coefficients for calculating the power. If missing, coefficients
 #'will be automatically generated based on the \code{effectsize} argument.
-#'@param firth Default `FALSE`. Whether to apply the firth correction (via the `mbest` package) to a logistic regression.
+#'@param firth Default `FALSE`. Whether to apply the firth correction (via the `mbest` package) to a logistic regression. This
+#'setting also automatically sets `effect_lr = TRUE`.
 #'@param effectsize Helper argument to generate anticipated coefficients. See details for more info.
 #'If you specify \code{anticoef}, \code{effectsize} will be ignored.
 #'@param contrasts Default \code{contr.sum}. The contrasts to use for categorical factors. If the user has specified their own contrasts
 #'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
 #'@param parallel Default `FALSE`. If `TRUE`, uses all cores available to speed up computation. WARNING: This can slow down computation if nonparallel time to complete the computation is less than a few seconds.
+#'@param adjust_alpha_inflation Default `FALSE`. If `TRUE`, this will run the simulation twice:
+#'first to calculate the empirical distribution of p-values under the null hypothesis and find
+#'the true Type-I error cutoff that corresponds to the desired Type-I error rate,
+#'and then again given effect size to calculate power values.
 #'@param detailedoutput Default `FALSE`. If `TRUE`, return additional information about evaluation in results.
+#'@param progress Default `TRUE`. Whether to include a progress bar.
 #'@param advancedoptions Default `NULL`. Named list of advanced options. `advancedoptions$anovatype` specifies the Anova type in the car package (default type `III`),
 #'user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
 #'`advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.
@@ -207,27 +217,29 @@
 #'#changes this count by a factor of 4 (multiplied by 2 when x= +1, and divided by 2 when x = -1).
 #'#Note the use of log() in the anticipated coefficients.
 eval_design_mc = function(design, model = NULL, alpha = 0.05,
-                          blocking = NULL, nsim = 1000, glmfamily = "gaussian", calceffect = TRUE,
+                          blocking = NULL, nsim = 1000, glmfamily = "gaussian",
+                          calceffect = TRUE, effect_anova = TRUE,
                           varianceratios = NULL, rfunction = NULL, anticoef = NULL, firth = FALSE,
                           effectsize = 2, contrasts = contr.sum, parallel = FALSE,
-                          detailedoutput = FALSE, advancedoptions = NULL, ...) {
+                          adjust_alpha_inflation = FALSE,
+                          detailedoutput = FALSE, progress = TRUE, advancedoptions = NULL, ...) {
   if(!firth) {
     method = "glm.fit"
   } else {
     if(!(length(find.package("mbest", quiet = TRUE)) > 0)) {
-      stop("Firth correction requires installation of the `mbest` package.")
+      stop("skpr: Firth correction requires installation of the `mbest` package.")
     }
     method = mbest::firthglm.fit
   }
   if(missing(design)) {
-    stop("No design detected in arguments.")
+    stop("skpr: No design detected in arguments.")
   }
   if(missing(model) || (is.numeric(model) && missing(alpha))) {
     if(is.numeric(model) && missing(alpha)) {
       alpha = model
     }
     if(is.null(attr(design,"generating.model"))) {
-      stop("No model detected in arguments or in design attributes.")
+      stop("skpr: No model detected in arguments or in design attributes.")
     } else {
       model = attr(design,"generating.model")
     }
@@ -251,7 +263,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   }
   args = list(...)
   if ("RunMatrix" %in% names(args)) {
-    stop("RunMatrix argument deprecated. Use `design` instead.")
+    stop("skpr: RunMatrix argument deprecated. Use `design` instead.")
   }
 
   if(is.null(blocking)) {
@@ -276,39 +288,46 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     } else {
       progressBarUpdater = NULL
     }
-    if(is.null(advancedoptions$alphacorrection)) {
-      advancedoptions$alphacorrection = TRUE
-    } else {
-      if(!advancedoptions$alphacorrection) {
-        advancedoptions$alphacorrection = FALSE
-      }
-    }
   } else {
     advancedoptions = list()
     advancedoptions$GUI = FALSE
-    advancedoptions$alphacorrection = TRUE
     progressBarUpdater = NULL
     advancedoptions$save_simulated_responses = FALSE
+    advancedoptions$aliaspower = 2
+  }
+  if(is.null(advancedoptions$aliaspower)) {
+    aliaspower = 2
+  } else {
+    if(!is.numeric(advancedoptions$aliaspower)) {
+      stop("skpr: advancedoptions$aliaspower must be a positive integer")
+    }
+    aliaspower = advancedoptions$aliaspower
   }
   alpha_adjust = FALSE
-  if (advancedoptions$alphacorrection && glmfamily != "gaussian" && blocking) {
+  if (adjust_alpha_inflation) {
     alpha_adjust = TRUE
-    advancedoptions$alphacorrection = FALSE
+    adjust_alpha_inflation = FALSE
     if (is.null(advancedoptions$alphanull)) {
       effectsizetemp = c(effectsize[1], effectsize[1])
     } else {
       effectsizetemp = advancedoptions$alphanull
     }
     nullresults = eval_design_mc(design = design, model = model, alpha = alpha,
-                   blocking = blocking, nsim = nsim, glmfamily = glmfamily, calceffect = calceffect,
+                   blocking = blocking, nsim = nsim, glmfamily = glmfamily,
+                   calceffect = calceffect, effect_anova = effect_anova,
                    varianceratios = varianceratios, rfunction = rfunction, anticoef = anticoef, firth = firth,
                    effectsize = effectsizetemp, contrasts = contrasts, parallel = parallel,
+                   progress = FALSE,
                    detailedoutput = detailedoutput, advancedoptions = advancedoptions, ...)
     if (attr(terms.formula(model, data = design), "intercept") == 1) {
       alpha_parameter = c(alpha, apply(attr(nullresults, "pvals"), 2, quantile, probs = alpha)[-1])
       alpha_parameter[alpha_parameter > alpha] = alpha
       if (calceffect) {
-        alpha_effect = c(alpha, apply(attr(nullresults, "effect_pvals"), 2, quantile, probs = alpha)[-1])
+        if(nullresults$parameter[1] == "(Intercept)") {
+          alpha_effect = c(alpha, apply(attr(nullresults, "effect_pvals"), 2, quantile, probs = alpha)[-1])
+        } else {
+          alpha_effect = apply(attr(nullresults, "effect_pvals"), 2, quantile, probs = alpha)
+        }
         alpha_effect[alpha_effect > alpha] = alpha
       }
     } else {
@@ -350,12 +369,12 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   model = convert_model_dots(run_matrix_processed, model)
 
   #----- Rearrange formula terms by order -----#
-  model = rearrange_formula_by_order(model)
+  model = rearrange_formula_by_order(model, data = run_matrix_processed)
   if(nointercept) {
     model = update.formula(model, ~-1 + .)
   }
 
-  glmfamilyname = glmfamily
+  glmfamilyname = tolower(glmfamily)
 
   #------Auto-set random generating function----#
   if (is.null(rfunction)) {
@@ -375,7 +394,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   }
 
   #------Normalize/Center numeric columns ------#
-  run_matrix_processed = normalize_numeric_runmatrix(run_matrix_processed)
+  run_matrix_processed = normalize_design(run_matrix_processed)
 
   #---------- Generating model matrix ----------#
   #Remove columns from variables not used in the model
@@ -420,7 +439,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     }
   }
   if (length(anticoef) != dim(ModelMatrix)[2]) {
-    stop("Wrong number of anticipated coefficients")
+    stop("skpr: Wrong number of anticipated coefficients")
   }
 
   #-------------- Blocking errors --------------#
@@ -437,7 +456,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       blockMatrixSize = nrow(run_matrix_processed)
       V = diag(blockMatrixSize)
       if (length(blockgroups) == 1 | is.matrix(blockgroups)) {
-        stop("No blocking detected. Specify block structure in row names or set blocking = FALSE")
+        stop("skpr: No blocking detected. Specify block structure in row names or set blocking = FALSE")
       }
       if (length(blockgroups) != length(varianceratios) && length(varianceratios) == 1) {
         # warning("Single varianceratio entered for multiple layers. Setting all but the run-to-run varianceratio to that level.")
@@ -447,7 +466,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         varianceratios = c(varianceratios,1)
       }
       if (length(blockgroups) != length(varianceratios)) {
-        stop("Wrong number of variance ratios specified. ", length(varianceratios),
+        stop("skpr: Wrong number of variance ratios specified. ", length(varianceratios),
              " variance ratios given c(",paste(varianceratios,collapse=", "), "), ", length(blockgroups), " expected. Either specify value for all blocking levels or one ratio for all blocks other than then run-to-run variance.")
       }
 
@@ -533,19 +552,20 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   progressbarupdates = floor(seq(1, nsim, length.out = 50))
   progresscurrent = 1
   estimates = matrix(0, nrow = nsim, ncol = ncol(ModelMatrix))
+  effect_terms = c(1,rownames(attr(terms(model_formula), "factors"))[-1])
   if (!parallel) {
     pvallist = list()
     effectpvallist = list()
     stderrlist = list()
     iterlist = list()
-    if(interactive()) {
+    if(interactive() && progress) {
       pb = progress::progress_bar$new(format = "  Calculating Power [:bar] :percent ETA: :eta",
                                       total = nsim, clear = TRUE, width= 60)
     }
     power_values = rep(0, ncol(ModelMatrix))
     effect_power_values = c()
     for (j in 1:nsim) {
-      if (!is.null(progressBarUpdater)) {
+      if (!is.null(progressBarUpdater) && progress) {
         if (nsim > 50) {
           if (progressbarupdates[progresscurrent] == j) {
             progressBarUpdater(1 / 50)
@@ -566,7 +586,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
             )
           )
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>Chisq)")
+            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>Chisq)",
+                                         model_formula = model_formula, firth = firth,
+                                         glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                         RunMatrixReduced = RunMatrixReduced, method = method,
+                                         contrastslist = contrastslist, effect_anova = effect_anova)
           }
         } else {
           tryCatch({
@@ -579,7 +603,13 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
             fiterror = TRUE
           })
           if (calceffect && !fiterror) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest)
+            effect_pvals = effectpowermc(fit, type = anovatype,
+                                         test = pvalstring,
+                                         test.statistic = anovatest,
+                                         model_formula = model_formula, firth = firth,
+                                         glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                         RunMatrixReduced = RunMatrixReduced, method = method,
+                                         contrastslist = contrastslist, effect_anova = effect_anova)
           }
         }
         if(!fiterror) {
@@ -595,9 +625,12 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         if (glmfamilyname == "gaussian") {
           fit = lm(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
           if (calceffect) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>F)")
+            effect_pvals = effectpowermc(fit, type = anovatype, test = "Pr(>F)", test.statistic = anovatest,
+                                         model_formula = model_formula, firth = firth,
+                                         glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                         RunMatrixReduced = RunMatrixReduced, method = method,
+                                         contrastslist = contrastslist, effect_anova = effect_anova)
           }
-
         } else {
           tryCatch({
             fit = suppressWarnings(suppressMessages({
@@ -607,20 +640,22 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
             fiterror = TRUE
           })
           if (calceffect && !fiterror) {
-            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest)
+            effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest,
+                                         model_formula = model_formula, firth = firth,
+                                         glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                         RunMatrixReduced = RunMatrixReduced, method = method,
+                                         contrastslist = contrastslist, effect_anova = effect_anova)
           }
         }
         if(!fiterror) {
-          estimates[j, ] = suppressWarnings(
-            suppressMessages(coef(fit)
-                             ))
+          estimates[j, ] = suppressWarnings(suppressMessages(coef(fit)))
         } else {
           estimates[j, ] = NA
         }
       }
       if(!fiterror) {
         #determine whether beta[i] is significant. If so, increment nsignificant
-        pvals = suppressWarnings(extractPvalues(fit))
+        pvals = suppressWarnings(extractPvalues(fit, glmfamily = glmfamilyname))
         pvallist[[j]] = pvals
         if (length(effect_power_values) == 0 && calceffect && !fiterror) {
           effect_power_values = c(effect_power_values, rep(0, length(effect_pvals)))
@@ -638,7 +673,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         }
         power_values[pvals < alpha_parameter] = power_values[pvals < alpha_parameter] + 1
       }
-      if(interactive()) {
+      if(interactive() && progress) {
         pb$tick()
       }
     }
@@ -681,7 +716,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
               )
             )
             if (calceffect) {
-              effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>Chisq)")
+              effect_pvals = effectpowermc(fit, type = "III",
+                                           test = "Pr(>Chisq)")
             }
           } else {
             tryCatch({
@@ -694,7 +730,13 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
               fiterror = TRUE
             })
             if (calceffect && !fiterror) {
-              effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest)
+              effect_pvals = effectpowermc(fit, type = anovatype,
+                                           test = pvalstring,
+                                           test.statistic = anovatest,
+                                           model_formula = model_formula, firth = firth,
+                                           glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                           RunMatrixReduced = RunMatrixReduced, method = method,
+                                           contrastslist = contrastslist, effect_anova = effect_anova)
             }
           }
           if(!fiterror) {
@@ -704,7 +746,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
           if (glmfamilyname == "gaussian") {
             fit = lm(model_formula, data = RunMatrixReduced, contrasts = contrastslist)
             if (calceffect) {
-              effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>F)")
+              effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>F)", test.statistic = anovatest,
+                                           model_formula = model_formula, firth = firth,
+                                           glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                           RunMatrixReduced = RunMatrixReduced, method = method,
+                                           contrastslist = contrastslist, effect_anova = effect_anova)
             }
           } else {
             tryCatch({
@@ -717,7 +763,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
               fiterror = TRUE
             })
             if (calceffect && !fiterror) {
-              effect_pvals = effectpowermc(fit, type = "III", test = "Pr(>Chisq)", test.statistic = "Wald")
+              effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest,
+                                           model_formula = model_formula, firth = firth,
+                                           glmfamily = glmfamilyname, effect_terms = effect_terms,
+                                           RunMatrixReduced = RunMatrixReduced, method = method,
+                                           contrastslist = contrastslist, effect_anova = effect_anova)
             }
           }
           if(!fiterror) {
@@ -730,7 +780,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         }
         if(!fiterror) {
           #determine whether beta[i] is significant. If so, increment nsignificant
-          pvals = extractPvalues(fit)
+          pvals = extractPvalues(fit, glmfamily = glmfamilyname)
           power_values = rep(0, length(pvals))
           if (calceffect) {
             effect_power_values = rep(0, length(effect_pvals))
@@ -790,7 +840,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       likelyseparation = likelyseparation || (all(pvalcount$count[20] > pvalcount$count[17:19]) && pvalcount$count[20] > nsim / 15)
     }
     if (likelyseparation && !advancedoptions$GUI) {
-      warning("Partial or complete separation likely detected in the binomial Monte Carlo simulation. Increase the number of runs in the design or decrease the number of model parameters to improve power.")
+      warning("skpr: Partial or complete separation likely detected in the binomial Monte Carlo simulation. Increase the number of runs in the design or decrease the number of model parameters to improve power.")
     }
   }
 
@@ -808,8 +858,23 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       }
       attr(retval, "correlation.matrix") = round(correlation.matrix, 8)
     }, error = function(e) {})
+    tryCatch({
+      if (ncol(attr(run_matrix_processed, "modelmatrix")) > 2) {
+        amodel = aliasmodel(model, aliaspower)
+        if (amodel != model) {
+          aliasmatrix = suppressWarnings({
+            model.matrix(aliasmodel(model, aliaspower), design, contrasts.arg = contrastslist_cormat)[, -1]
+          })
+          A = solve(t(modelmatrix_cor) %*% modelmatrix_cor) %*% t(modelmatrix_cor) %*% aliasmatrix
+          attr(results, "alias.matrix") = A
+          attr(results, "trA") = sum(diag(t(A) %*% A))
+        } else {
+          attr(results, "alias.matrix") = "No alias matrix calculated: full model specified"
+          attr(results, "trA") = "No alias trace calculated: full model specified"
+        }
+      }
+    }, error = function(e) {})
   }
-
   if (detailedoutput) {
     if (nrow(retval) != length(anticoef)){
       retval$anticoef = c(rep(NA, nrow(retval) - length(anticoef)), anticoef)
@@ -825,7 +890,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     retval$trials = nrow(run_matrix_processed)
     retval$nsim = nsim
     retval$blocking = blocking
-    if(calceffect) {
+    if(calceffect && alpha_adjust) {
       retval$error_adjusted_alpha = c(alpha_effect, alpha_parameter)
     } else {
       retval$error_adjusted_alpha = alpha_parameter
@@ -870,6 +935,67 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   }
   if(!inherits(retval,"skpr_eval_output")) {
     class(retval) = c("skpr_eval_output", class(retval))
+  }
+  #Add recommended analysis method
+  contrast_string = deparse(substitute(contrasts))
+  attr(retval, "contrast_string") = sprintf("`%s`",contrast_string)
+  if(calceffect) {
+    if(effect_anova) {
+      effect_string = sprintf(r"{`car::Anova(fit, type = "III")`}")
+    } else {
+      effect_string = r"{`lmtest::lrtest(fit, fit_without_effect)`}"
+    }
+  } else {
+    effect_string = ""
+  }
+  if(glmfamilyname == "gaussian") {
+    if(!blocking) {
+      attr(retval, "parameter_analysis_method_string") = "`lm(...)`"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    } else {
+      attr(retval, "parameter_analysis_method_string") = "`lme4::lmer(...)`"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    }
+  } else if (glmfamilyname == "binomial") {
+    if(!blocking) {
+      if(!firth) {
+        attr(retval, "parameter_analysis_method_string") = r"{glm(..., family = "binomial")`}"
+        attr(retval, "effect_analysis_method_string") = effect_string
+      } else {
+        attr(retval, "parameter_analysis_method_string") = r"{glm(..., family = "binomial", method = mbest::firthglm.fit)`}" #"
+        if(calceffect) {
+          attr(retval, "effect_analysis_method_string") = r"{lmtest::lrtest(fit, fit_without_effect)`}"
+        } else {
+          attr(retval, "effect_analysis_method_string") = ""
+        }
+      }
+    } else {
+      attr(retval, "parameter_analysis_method_string") = r"{`lme4::glmer(..., family = "binomial")`}"
+      if(calceffect) {
+        attr(retval, "effect_analysis_method_string") = effect_string
+      } else {
+        attr(retval, "effect_analysis_method_string") = ""
+      }
+    }
+  } else if (glmfamilyname == "poisson") {
+    if(!blocking) {
+      attr(retval, "parameter_analysis_method_string") = r"{`glm(..., family = "poisson")`}"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    } else {
+      attr(retval, "parameter_analysis_method_string") = r"{`lme4::glmer(..., family = "poisson")`}"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    }
+  } else if (glmfamilyname == "exponential") {
+    if(!blocking) {
+      attr(retval, "parameter_analysis_method_string") = r"{`glm(..., family = Gamma(link = "log")); summary(fit, dispersion = 1)`}"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    } else {
+      attr(retval, "parameter_analysis_method_string") = r"{`lme4::glmer(..., family = Gamma(link = "log")); summary(fit, dispersion = 1)`}"
+      attr(retval, "effect_analysis_method_string") = effect_string
+    }
+  } else {
+    attr(retval, "parameter_analysis_method_string") = ""
+    attr(retval, "effect_analysis_method_string")    = ""
   }
   return(retval)
 }

@@ -26,7 +26,7 @@
 #'this ratio can be a vector specifying the variance ratio for each subplot (comparing to the run-to-run variance).
 #'Otherwise, it will use a single value for all strata.
 #'@param contrasts Default \code{contr.sum}. The function to use to encode the categorical factors in the model matrix. If the user has specified their own contrasts
-#'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
+#'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use `contr.sum`.
 #'@param detailedoutput If `TRUE``, return additional information about evaluation in results. Default FALSE.
 #'@param conservative Specifies whether default method for generating
 #'anticipated coefficents should be conservative or not. `TRUE` will give the most conservative
@@ -166,14 +166,14 @@ eval_design = function(design, model = NULL, alpha = 0.05,
                        contrasts = contr.sum, conservative = FALSE, reorder_factors = FALSE,
                        detailedoutput = FALSE, advancedoptions = NULL, ...) {
   if(missing(design)) {
-    stop("No design detected in arguments.")
+    stop("skpr: No design detected in arguments.")
   }
   if(missing(model) || (is.numeric(model) && missing(alpha))) {
     if(is.numeric(model) && missing(alpha)) {
       alpha = model
     }
     if(is.null(attr(design,"generating.model"))) {
-      stop("No model detected in arguments or in design attributes.")
+      stop("skpr: No model detected in arguments or in design attributes.")
     } else {
       model = attr(design,"generating.model")
     }
@@ -198,7 +198,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   input_design = design
   args = list(...)
   if ("RunMatrix" %in% names(args)) {
-    stop("RunMatrix argument deprecated. Use `design` instead.")
+    stop("skpr: RunMatrix argument deprecated. Use `design` instead.")
   }
 
   if(is.null(blocking)) {
@@ -239,7 +239,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     aliaspower = 2
   } else {
     if(!is.numeric(advancedoptions$aliaspower)) {
-      stop("advancedoptions$aliaspower must be a positive integer")
+      stop("skpr: advancedoptions$aliaspower must be a positive integer")
     }
     aliaspower = advancedoptions$aliaspower
   }
@@ -260,7 +260,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   model = convert_model_dots(run_matrix_processed, model)
 
   #----- Rearrange formula terms by order -----#
-  model = rearrange_formula_by_order(model)
+  model = rearrange_formula_by_order(model, data = run_matrix_processed)
   if (nointercept) {
     model = update.formula(model, ~-1 + . )
   }
@@ -286,7 +286,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   }
 
   #------Normalize/Center numeric columns ------#
-  run_matrix_processed = normalize_numeric_runmatrix(run_matrix_processed)
+  run_matrix_processed = normalize_design(run_matrix_processed)
 
   #-Generate Model Matrix & Anticipated Coefficients-#
   #Variables used later: anticoef
@@ -303,7 +303,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     }
   }
   if (length(anticoef) != dim(attr(run_matrix_processed, "modelmatrix"))[2]) {
-    stop("Wrong number of anticipated coefficients")
+    stop("skpr: Wrong number of anticipated coefficients")
   }
 
   #-----Generate V inverse matrix-----X
@@ -398,6 +398,7 @@ eval_design = function(design, model = NULL, alpha = 0.05,
   attr(results, "blocking") = blocking
   attr(results, "varianceratios") = varianceratios
   attr(results, "alpha") = alpha
+  attr(results, "contrastslist") = contrastslist
 
   levelvector = sapply(lapply(run_matrix_processed, unique), length)
   classvector = sapply(lapply(run_matrix_processed, unique), class) == "factor"
@@ -410,6 +411,8 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     attr(results, "variance.matrix") = diag(nrow(modelmatrix_cor)) * varianceratios
     attr(results, "I") = IOptimality(modelmatrix_cor, momentsMatrix = mm, blockedVar = diag(nrow(modelmatrix_cor)))
     attr(results, "D") = 100 * DOptimalityLog(modelmatrix_cor)
+    attr(results, "T") = sum(diag(t(modelmatrix_cor) %*% modelmatrix_cor))
+    attr(results, "E") = min(unlist(eigen(t(modelmatrix_cor) %*% modelmatrix_cor)["values"]))
   } else {
     attr(results, "z.matrix.list") = zlist
     attr(results, "variance.matrix") = V
@@ -487,7 +490,20 @@ eval_design = function(design, model = NULL, alpha = 0.05,
     class(results) = c("skpr_eval_output", class(results))
   }
   if(any(is.na(results$power))) {
-    warning("NA indicates not enough degrees of freedom to estimate power for those terms.")
+    warning("skpr: NA indicates not enough degrees of freedom to estimate power for those terms.")
+  }
+  recommend_analysis_method = function(blocking) {
+
+  }
+  #Add recommended analysis method
+  contrast_string = deparse(substitute(contrasts))
+  attr(results, "contrast_string") = sprintf("`%s`",contrast_string)
+  if(!blocking) {
+    attr(results, "parameter_analysis_method_string") = "`lm(...)`"
+    attr(results, "effect_analysis_method_string") = r"{`car::Anova(fit, type = "III")`}"
+  } else {
+    attr(results, "parameter_analysis_method_string") = "`lme4::lmer(...)`"
+    attr(results, "effect_analysis_method_string") = r"{`car::Anova(fit, type = "III")`}"
   }
   return(results)
 }
