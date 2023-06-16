@@ -120,17 +120,18 @@
 #'factorialcoffee = expand.grid(cost = c(-1, 1),
 #'                               type = as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
 #'                               size = as.factor(c("Short", "Grande", "Venti")))
-#'
+#'if(skpr:::run_documentation()) {
 #'#And then generate the 21-run D-optimal design using gen_design.
-#'
 #'designcoffee = gen_design(factorialcoffee,
 #'                          model = ~cost + type + size, trials = 21, optimality = "D")
-#'
+#'}
+#'if(skpr:::run_documentation()) {
 #'#To evaluate this design using a normal approximation, we just use eval_design
 #'#(here using the default settings for contrasts, effectsize, and the anticipated coefficients):
 #'
 #'eval_design(design = designcoffee, model = ~cost + type + size, 0.05)
-#'
+#'}
+#'if(skpr:::run_documentation()) {
 #'#To evaluate this design with a Monte Carlo method, we enter the same information
 #'#used in eval_design, with the addition of the number of simulations "nsim" and the distribution
 #'#family used in fitting for the glm "glmfamily". For gaussian, binomial, exponential, and poisson
@@ -139,30 +140,34 @@
 #'#function can be supplied by the user. Like in `eval_design()`, if the model isn't entered, the
 #'#model used in generating the design will be used.
 #'
-#'\dontrun{eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian")}
-#'
+#'eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian")
+#'}
+#'if(skpr:::run_documentation()) {
 #'#We see here we generate approximately the same parameter powers as we do
 #'#using the normal approximation in eval_design. Like eval_design, we can also change
 #'#effectsize to produce a different signal-to-noise ratio:
 #'
-#'\dontrun{eval_design_mc(design = designcoffee, nsim = 100,
-#'                        glmfamily = "gaussian", effectsize = 1)}
-#'
+#'eval_design_mc(design = designcoffee, nsim = 100,
+#'                        glmfamily = "gaussian", effectsize = 1)
+#'}
+#'if(skpr:::run_documentation()) {
 #'#Like eval_design, we can also evaluate the design with a different model than
 #'#the one that generated the design.
-#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type, alpha = 0.05,
-#'               nsim = 100, glmfamily = "gaussian")}
-#'
-#'
+#'eval_design_mc(design = designcoffee, model = ~cost + type, alpha = 0.05,
+#'               nsim = 100, glmfamily = "gaussian")
+#'}
+#'if(skpr:::run_documentation()) {
 #'#And here it is evaluated with additional interactions included:
-#'\dontrun{eval_design_mc(design = designcoffee, model = ~cost + type + size + cost * type, 0.05,
-#'               nsim = 100, glmfamily = "gaussian")}
-#'
+#'eval_design_mc(design = designcoffee, model = ~cost + type + size + cost * type, 0.05,
+#'               nsim = 100, glmfamily = "gaussian")
+#'}
+#'if(skpr:::run_documentation()) {
 #'#We can also set "parallel = TRUE" to use all the cores available to speed up
 #'#computation.
-#'\dontrun{eval_design_mc(design = designcoffee, nsim = 10000,
-#'                        glmfamily = "gaussian", parallel = TRUE)}
-#'
+#'eval_design_mc(design = designcoffee, nsim = 10000,
+#'                        glmfamily = "gaussian", parallel = TRUE)
+#'}
+#'if(skpr:::run_documentation()) {
 #'#We can also evaluate split-plot designs. First, let us generate the split-plot design:
 #'
 #'factorialcoffee2 = expand.grid(Temp = c(1, -1),
@@ -186,9 +191,10 @@
 #'#the whole plots and the run-to-run variance for gaussian models.
 #'
 #'#Evaluate the design. Note the decreased power for the blocking factors.
-#'\dontrun{eval_design_mc(splitplotdesign, blocking = TRUE, nsim = 100,
-#'                        glmfamily = "gaussian", varianceratios = c(1, 1, 1))}
-#'
+#'eval_design_mc(splitplotdesign, blocking = TRUE, nsim = 100,
+#'                        glmfamily = "gaussian", varianceratios = c(1, 1, 1))
+#'}
+#'if(skpr:::run_documentation()) {
 #'#We can also use this method to evaluate designs that cannot be easily
 #'#evaluated using normal approximations. Here, we evaluate a design with a binomial response and see
 #'#whether we can detect the difference between each factor changing whether an event occurs
@@ -197,9 +203,10 @@
 #'factorialbinom = expand.grid(a = c(-1, 1), b = c(-1, 1))
 #'designbinom = gen_design(factorialbinom, model = ~a + b, trials = 90, optimality = "D")
 #'
-#'\dontrun{eval_design_mc(designbinom, ~a + b, alpha = 0.2, nsim = 100, effectsize = c(0.7, 0.9),
-#'               glmfamily = "binomial")}
-#'
+#'eval_design_mc(designbinom, ~a + b, alpha = 0.2, nsim = 100, effectsize = c(0.7, 0.9),
+#'               glmfamily = "binomial")
+#'}
+#'if(skpr:::run_documentation()) {
 #'#We can also use this method to determine power for poisson response variables.
 #'#Generate the design:
 #'
@@ -208,9 +215,9 @@
 #'
 #'#Evaluate the power:
 #'
-#'\dontrun{eval_design_mc(designpois, ~a + b, 0.05, nsim = 100, glmfamily = "poisson",
-#'                anticoef = log(c(0.2, 2, 2)))}
-#'
+#'eval_design_mc(designpois, ~a + b, 0.05, nsim = 100, glmfamily = "poisson",
+#'                anticoef = log(c(0.2, 2, 2)))
+#'}
 #'
 #'#The coefficients above set the nominal value -- that is, the expected count
 #'#when all inputs = 0 -- to 0.2 (from the intercept), and say that each factor
@@ -546,9 +553,19 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   } else {
     anovatype = "III"
   }
+  #-------------- -------------#
+  if(effect_anova && firth && glmfamily == "binomial" && !alpha_adjust) {
+    warning(r"(skpr uses a likelihood ratio test (instead of a type-III ANOVA) for",
+      "effect power when `firth = TRUE` and `glmfamily = "binomial"`: setting `effect_lr = TRUE`.)")
+  }
+  fterms = terms.formula(model_formula)
+  term_order = attr(fterms,"order")
+  if(min(term_order) != 1) {
+    stop("skpr: No main effect terms found--this model will not produce well-formed power estimates.")
+  }
 
   #---------------- Run Simulations ---------------#
-
+  aliasing_checked = FALSE
   progressbarupdates = floor(seq(1, nsim, length.out = 50))
   progresscurrent = 1
   estimates = matrix(0, nrow = nsim, ncol = ncol(ModelMatrix))
@@ -644,7 +661,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
                                          model_formula = model_formula, firth = firth,
                                          glmfamily = glmfamilyname, effect_terms = effect_terms,
                                          RunMatrixReduced = RunMatrixReduced, method = method,
-                                         contrastslist = contrastslist, effect_anova = effect_anova)
+                                         contrastslist = contrastslist, effect_anova = effect_anova,
+                                         model_matrix = ModelMatrix)
           }
         }
         if(!fiterror) {
@@ -654,8 +672,23 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         }
       }
       if(!fiterror) {
+        #Check for perfect aliasing in design
+        if(!aliasing_checked) {
+          aliasing_checked = TRUE
+          if(!inherits(fit, c("lmerMod","glmerMod","merMod")) && !is.null(alias(fit)$Complete)) {
+            alias_mat_fit = alias(fit)$Complete
+            if(nrow(alias_mat_fit) > 0) {
+              perfectly_aliased_terms = paste0(rownames(alias_mat_fit), collapse = ", ")
+              stop(sprintf("Perfectly aliased term(s) included in model (%s). Remove these terms to fit your model, or change your design.",
+                           perfectly_aliased_terms))
+            }
+          }
+        }
         #determine whether beta[i] is significant. If so, increment nsignificant
         pvals = suppressWarnings(extractPvalues(fit, glmfamily = glmfamilyname))
+        #reorder since firth correction can change the ordering
+        pvals = pvals[order(factor(names(pvals), levels = parameter_names))]
+        stopifnot(all(names(pvals) == parameter_names))
         pvallist[[j]] = pvals
         if (length(effect_power_values) == 0 && calceffect && !fiterror) {
           effect_power_values = c(effect_power_values, rep(0, length(effect_pvals)))
@@ -687,6 +720,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     power_values = power_values / nsim
     if (calceffect) {
       effect_power_values = effect_power_values / nsim
+      if(length(effectpvallist) > 1) {
+        if(!isTRUE(do.call("all.equal",lapply(effectpvallist,names)))) {
+          stop("effect p-value names shifted during computation, results are not valid: contact the developer")
+        }
+      }
       names(effect_power_values) = names(effectpvallist[[1]])
     }
   } else {
@@ -779,8 +817,23 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
           }
         }
         if(!fiterror) {
+          #Check for perfect aliasing in design
+          if(!aliasing_checked) {
+            aliasing_checked = TRUE
+            if(!inherits(fit, c("lmerMod","glmerMod","merMod")) && !is.null(alias(fit)$Complete)) {
+              alias_mat_fit = alias(fit)$Complete
+              if(nrow(alias_mat_fit) > 0) {
+                perfectly_aliased_terms = paste0(rownames(alias_mat_fit), collapse = ", ")
+                stop(sprintf("Perfectly aliased term(s) included in model (%s). Remove these terms to fit your model, or change your design.",
+                             perfectly_aliased_terms))
+              }
+            }
+          }
           #determine whether beta[i] is significant. If so, increment nsignificant
           pvals = extractPvalues(fit, glmfamily = glmfamilyname)
+          #reorder since firth correction can change the ordering
+          pvals = pvals[order(factor(names(pvals), levels = parameter_names))]
+          stopifnot(all(names(pvals) == parameter_names))
           power_values = rep(0, length(pvals))
           if (calceffect) {
             effect_power_values = rep(0, length(effect_pvals))
