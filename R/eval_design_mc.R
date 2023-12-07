@@ -38,7 +38,8 @@
 #'If you specify \code{anticoef}, \code{effectsize} will be ignored.
 #'@param contrasts Default \code{contr.sum}. The contrasts to use for categorical factors. If the user has specified their own contrasts
 #'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
-#'@param parallel Default `FALSE`. If `TRUE`, uses all cores available to speed up computation. WARNING: This can slow down computation if nonparallel time to complete the computation is less than a few seconds.
+#' If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
+#' NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
 #'@param adjust_alpha_inflation Default `FALSE`. If `TRUE`, this will run the simulation twice:
 #'first to calculate the empirical distribution of p-values under the null hypothesis and find
 #'the true Type-I error cutoff that corresponds to the desired Type-I error rate,
@@ -49,6 +50,8 @@
 #'user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
 #'`advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.
 #'If `advancedoptions$save_simulated_responses = TRUE`, the dataframe will have an attribute `simulated_responses` that contains the simulated responses from the power evaluation.
+#'@param parallel Default `FALSE`. If `TRUE`, the Monte Carlo power calculation will use all but one of the available cores. If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
+#' NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
 #'@param ... Additional arguments.
 #'@return A data frame consisting of the parameters and their powers, with supplementary information
 #'stored in the data frame's attributes. The parameter estimates from the simulations are stored in the "estimates"
@@ -115,7 +118,7 @@
 #'
 #'
 #'@export
-#'@import foreach doParallel stats
+#'@import foreach doParallel stats doRNG
 #'@examples #We first generate a full factorial design using expand.grid:
 #'factorialcoffee = expand.grid(cost = c(-1, 1),
 #'                               type = as.factor(c("Kona", "Colombian", "Ethiopian", "Sumatra")),
@@ -230,7 +233,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
                           effectsize = 2, contrasts = contr.sum, parallel = FALSE,
                           adjust_alpha_inflation = FALSE,
                           detailedoutput = FALSE, progress = TRUE, advancedoptions = NULL, ...) {
-  if(!firth) {
+  if(!firth || glmfamily != "binomial") {
     method = "glm.fit"
   } else {
     if(!(length(find.package("mbest", quiet = TRUE)) > 0)) {
@@ -287,6 +290,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     if(is.null(advancedoptions$save_simulated_responses)) {
       advancedoptions$save_simulated_responses = FALSE
     }
+    if(!is.null(advancedoptions$progress_msg)) {
+      progress_message = advancedoptions$progress_msg
+    } else {
+      progress_message = "Power"
+    }
     if (is.null(advancedoptions$GUI)) {
       advancedoptions$GUI = FALSE
     }
@@ -296,11 +304,15 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       progressBarUpdater = NULL
     }
   } else {
+    progress_message =  "Power"
     advancedoptions = list()
     advancedoptions$GUI = FALSE
     progressBarUpdater = NULL
     advancedoptions$save_simulated_responses = FALSE
     advancedoptions$aliaspower = 2
+  }
+  if(!advancedoptions$GUI) {
+    progress = getOption("skpr_progress", progress)
   }
   if(is.null(advancedoptions$aliaspower)) {
     aliaspower = 2
@@ -319,12 +331,12 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     } else {
       effectsizetemp = advancedoptions$alphanull
     }
+    advancedoptions$progress_msg = "Type-I Error"
     nullresults = eval_design_mc(design = design, model = model, alpha = alpha,
                    blocking = blocking, nsim = nsim, glmfamily = glmfamily,
-                   calceffect = calceffect, effect_anova = effect_anova,
+                   calceffect = calceffect, effect_anova = effect_anova, adjust_alpha_inflation = FALSE,
                    varianceratios = varianceratios, rfunction = rfunction, anticoef = anticoef, firth = firth,
                    effectsize = effectsizetemp, contrasts = contrasts, parallel = parallel,
-                   progress = FALSE,
                    detailedoutput = detailedoutput, advancedoptions = advancedoptions, ...)
     if (attr(terms.formula(model, data = design), "intercept") == 1) {
       alpha_parameter = c(alpha, apply(attr(nullresults, "pvals"), 2, quantile, probs = alpha)[-1])
@@ -554,7 +566,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     anovatype = "III"
   }
   #-------------- -------------#
-  if(effect_anova && firth && glmfamily == "binomial" && !alpha_adjust) {
+  if(effect_anova && firth && glmfamilyname == "binomial" && !alpha_adjust) {
     warning(r"(skpr uses a likelihood ratio test (instead of a type-III ANOVA) for",
       "effect power when `firth = TRUE` and `glmfamily = "binomial"`: setting `effect_lr = TRUE`.)")
   }
@@ -566,7 +578,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
 
   #---------------- Run Simulations ---------------#
   aliasing_checked = FALSE
-  progressbarupdates = floor(seq(1, nsim, length.out = 50))
+  num_updates = min(c(nsim,200))
+  progressbarupdates = floor(seq(1, nsim, length.out = num_updates))
   progresscurrent = 1
   estimates = matrix(0, nrow = nsim, ncol = ncol(ModelMatrix))
   effect_terms = c(1,rownames(attr(terms(model_formula), "factors"))[-1])
@@ -576,20 +589,17 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     stderrlist = list()
     iterlist = list()
     if(interactive() && progress) {
-      pb = progress::progress_bar$new(format = "  Calculating Power [:bar] :percent ETA: :eta",
-                                      total = nsim, clear = TRUE, width= 60)
+      pb = progress::progress_bar$new(format = sprintf("  Calculating %s [:bar] (:current/:total, :tick_rate sim/s) ETA: :eta", progress_message),
+                                      total = nsim, clear = TRUE, width= 100)
     }
     power_values = rep(0, ncol(ModelMatrix))
     effect_power_values = c()
-    for (j in 1:nsim) {
-      if (!is.null(progressBarUpdater) && progress) {
-        if (nsim > 50) {
-          if (progressbarupdates[progresscurrent] == j) {
-            progressBarUpdater(1 / 50)
-            progresscurrent = progresscurrent + 1
-          }
-        } else {
-          progressBarUpdater(1 / nsim)
+    for (j in seq_len(nsim)) {
+      if (advancedoptions$GUI && !is.null(progressBarUpdater)) {
+        #This code is to slow down the number of updates in the Shiny app--if there
+        #are too many updates, the progress bar will lag behind the actual computation
+        if (j %in% progressbarupdates) {
+          progressBarUpdater(1 / num_updates)
         }
       }
       fiterror = FALSE
@@ -706,7 +716,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         }
         power_values[pvals < alpha_parameter] = power_values[pvals < alpha_parameter] + 1
       }
-      if(interactive() && progress) {
+      if(interactive() && progress && !advancedoptions$GUI) {
         pb$tick()
       }
     }
@@ -728,21 +738,35 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       names(effect_power_values) = names(effectpvallist[[1]])
     }
   } else {
-    if (is.null(options("cores")[[1]])) {
-      numbercores = parallel::detectCores()
-    } else {
-      numbercores = options("cores")[[1]]
+    if(!progress) {
+      progressbarupdates = c()
     }
-    cl = parallel::makeCluster(numbercores)
-    numbercores = length(cl)
-    doParallel::registerDoParallel(cl)
+    if(!advancedoptions$GUI && progress) {
+      set_up_progressr_handler(sprintf("Evaluating %s",progress_message), "sims")
+    }
     modelmat = model.matrix(model_formula, data=RunMatrixReduced,contrasts = contrastslist)
-    packagelist = c("lme4", "lmerTest")
+    packagelist = c()
     if(firth) {
-      packagelist = c("lme4", "lmerTest", "mbest")
+      packagelist = "mbest"
     }
-    tryCatch({
-      power_estimates = foreach::foreach (j = 1:nsim, .combine = "rbind", .export = c("extractPvalues", "effectpowermc"), .packages = packagelist) %dopar% {
+    nc =  future::nbrOfWorkers()
+    run_search = function(iterations, is_shiny) {
+      prog = progressr::progressor(steps = nsim)
+      foreach::foreach (j = seq_along(iterations), .combine = "rbind",
+                        .options.future = list(packages = packagelist,
+                                               globals = c("extractPvalues", "effectpowermc", "RunMatrixReduced", "is_shiny", "blocking",
+                                                           "responses", "contrastslist", "model_formula", "glmfamily", "glmfamilyname", "calceffect",
+                                                           "anovatype", "pvalstring", "anovatest", "firth", "effect_terms", "effect_anova", "method",
+                                                           "modelmat", "aliasing_checked", "parameter_names", "progressbarupdates",
+                                                           "alpha_parameter", "alpha_effect", "prog", "nsim", "num_updates", "nc"),
+                                               seed = TRUE)) %dofuture% {
+        if(j %in% progressbarupdates) {
+          if(is_shiny) {
+            prog(sprintf(" (%i workers) ", nc), amount = nsim/num_updates)
+          } else {
+            prog(amount = nsim/num_updates)
+          }
+        }
         #simulate the data.
         fiterror = FALSE
         RunMatrixReduced$Y = responses[, j]
@@ -854,9 +878,9 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
           }
         }
       }
-    }, finally = {
-      parallel::stopCluster(cl)
-    })
+    }
+    power_estimates = run_search(seq_len(nsim), advancedoptions$GUI)
+
     power_values = apply(do.call(rbind, power_estimates[, "parameterpower"]), 2, sum) / nsim
     if (calceffect) {
       effect_power_values = apply(do.call(rbind, power_estimates[, "effectpower"]), 2, sum) / nsim
@@ -1006,7 +1030,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
       attr(retval, "parameter_analysis_method_string") = "`lm(...)`"
       attr(retval, "effect_analysis_method_string") = effect_string
     } else {
-      attr(retval, "parameter_analysis_method_string") = "`lme4::lmer(...)`"
+      attr(retval, "parameter_analysis_method_string") = "`lmerTest::lmer(...)`"
       attr(retval, "effect_analysis_method_string") = effect_string
     }
   } else if (glmfamilyname == "binomial") {

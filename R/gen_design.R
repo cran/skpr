@@ -47,8 +47,10 @@
 #' in a faster search, but are less likely tofind an optimal design. Values of `k >= n/4` have been shown empirically to generate similar designs to the full
 #' search. When `k == trials`, this results in the default modified Federov's algorithm.
 #' A `k` of 1 is a form of Wynn's algorithm \emph{Wynn. "Results in the Theory and Construction of D-Optimum Experimental Designs," Journal of the Royal Statistical Society, Ser. B,vol. 34, 1972, pp. 133-14}.
-#'@param parallel Default `FALSE`. If `TRUE`, the optimal design search will use all the available cores. This can lead to a substantial speed-up in the search for complex designs. If the user wants to set the number of cores manually, they can do this by setting options("cores") to the desired number. NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
-#'@param timer Default `FALSE`. If `TRUE`, will print an estimate of the optimal design search time.
+#'@param parallel Default `FALSE`. If `TRUE`, the optimal design search will use all but one of the available cores.
+#' This can lead to a substantial speed-up in the search for complex designs. If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
+#' NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
+#'@param progress Default `TRUE`. Whether to include a progress bar.
 #'@param add_blocking_columns Default `FALSE`. The blocking structure of the design will be indicated in the row names of the returned
 #'design. If `TRUE`, the design also will have extra columns to indicate the blocking structure. If no blocking is detected, no columns will be added.
 #'@param randomized Default `TRUE`, due to the intrinsic randomization of the design search algorithm. If `FALSE`,
@@ -64,9 +66,10 @@
 #'and the only way to calculate prediction variance with disallowed combinations). With this, there's also `g_efficiency_samples`, which specifies
 #'the number of random samples  (default 1000 if `g_efficiency_method = "random"`), attempts at simulated annealing (default 1 if `g_efficiency_method = "optim"`),
 #'or a data.frame defining the exact points of the design space if `g_efficiency_method = "custom"`.
+#'@param timer Deprecated: Use `progress` instead.
 #'@return A data frame containing the run matrix for the optimal design. The returned data frame contains supplementary
 #'information in its attributes, which can be accessed with the `get_attributes()` and `get_optimality()` functions.
-#'@import doRNG
+#'@import doRNG future
 #'@export
 #'@details
 #'Split-plot designs can be generated with repeated applications of \code{gen_design}; see examples for details.
@@ -287,8 +290,12 @@ gen_design = function(candidateset, model, trials,
                       augmentdesign = NULL, repeats = 20,
                       custom_v = NULL, varianceratio = 1, contrast = contr.simplex,
                       aliaspower = 2, minDopt = 0.8, k = NA,
-                      parallel = FALSE, timer = TRUE, add_blocking_columns = FALSE, randomized = TRUE,
-                      advancedoptions = NULL) {
+                      parallel = FALSE, progress = TRUE, add_blocking_columns = FALSE, randomized = TRUE,
+                      advancedoptions = NULL, timer = NULL) {
+  if(!is.null(timer)) {
+    warning("Use of `timer` argument deprecated: use `progress` instead.")
+    progress = timer
+  }
   check_model_validity(model)
   #standardize and check optimality inputs
   optimality_uc = toupper(tolower(optimality))
@@ -375,7 +382,7 @@ gen_design = function(candidateset, model, trials,
     progressBarUpdater = NULL
   }
   #turn off progress bar for non-interactive sessions
-  timer = timer && interactive()
+  progress = progress && interactive()
 
   if(is.null(splitplotdesign)) {
     if(varianceratio != 1) {
@@ -856,6 +863,10 @@ gen_design = function(candidateset, model, trials,
                      "100 < k < 1,000 indicates moderate to strong multicollinearity, and k > 1000 indiates severe",
                      "multicollinearity (Montgomery, \"Introduction to linear regression analysis\", 2001). \n\nThe",
                      sprintf(" condition index calculated for your candidate set and model is %0.1f", condition_val)))
+      } else if (any(eigenvals < 0)) {
+        stop(paste0("The Fisher information matrix of the candidate set's model matrix has at least one negative eigenvalue, which should ",
+                    "not happen if the matrix is well-conditioned (the matrix should be positive semi-definite). This means ",
+                    "that there is likely perfect correlation between one or more of the terms in the model."))
       }
     }
   }
@@ -879,6 +890,8 @@ gen_design = function(candidateset, model, trials,
     })
   }
 
+  num_updates = min(c(repeats,200))
+  progressbarupdates = floor(seq(1, repeats, length.out = num_updates))
   if (!splitplot) {
     factors = colnames(candidatesetmm)
     levelvector = sapply(lapply(candidateset, unique), length)
@@ -886,15 +899,18 @@ gen_design = function(candidateset, model, trials,
 
     mm = gen_momentsmatrix(factors, levelvector, classvector)
     if (!parallel) {
-      if(timer) {
-        pb = progress::progress_bar$new(format = "  Searching [:bar] :percent ETA: :eta",
-                                        total = repeats, clear = TRUE, width= 60)
+      if(!is.null(getOption("skpr_progress"))) {
+        progress = getOption("skpr_progress")
+      }
+      if(progress && !advancedoptions$GUI) {
+        pb = progress::progress_bar$new(format = "  Searching (1 core) [:bar] (:current/:total, :tick_rate designs/s) ETA::eta",
+                                        total = repeats, clear = TRUE, width= 100)
       }
       for (i in seq_len(repeats)) {
-        if (!is.null(progressBarUpdater)) {
-          progressBarUpdater(1 / repeats)
+        if (!is.null(progressBarUpdater) && i %in% progressbarupdates) {
+          progressBarUpdater(1 / num_updates)
         }
-        if(timer) {
+        if(progress && !advancedoptions$GUI) {
           pb$tick()
         }
         randomindices = sample(nrow(candidatesetmm), trials, replace = initialreplace)
@@ -917,64 +933,51 @@ gen_design = function(candidateset, model, trials,
         }
       }
     } else {
-      if (is.null(options("cores")[[1]])) {
-        numbercores = parallel::detectCores()
-      } else {
-        numbercores = options("cores")[[1]]
+      if(!getOption("skpr_progress", TRUE)) {
+        progressbarupdates = c()
       }
-      cl = parallel::makeCluster(numbercores)
-      numbercores = length(cl)
-      if(timer) {
-        pb = progress::progress_bar$new(format = sprintf("  Searching (%d cores) [:bar] :percent ETA: :eta", numbercores),
-                                        total = repeats, clear = TRUE, width= 60)
+      if(!advancedoptions$GUI && progress) {
+        set_up_progressr_handler("Searching", "designs")
       }
-      tryCatch({
-        doParallel::registerDoParallel(cl)
-        number_updates = max(c(min(c(repeats/(2*numbercores),100)),1))
-        parallel_output = list()
-        single_batch_number = repeats/number_updates
-        total_remaining = repeats
-        counter = 1
-        while(total_remaining > 0) {
-          if(total_remaining < single_batch_number) {
-            single_batch_number = total_remaining
+      nc = future::nbrOfWorkers()
+      run_search = function(iterations, is_shiny) {
+        prog = progressr::progressor(steps = repeats)
+        foreach::foreach(i = iterations,
+                         .options.future = list(globals = c("genOptimalDesign","genBlockedOptimalDesign", "candidatesetmm", "trials",
+                                                            "initialreplace", "augmentdesign", "augmentedrows", "augmentdesignmm",
+                                                            "progress", "is_shiny", "progressbarupdates", "repeats", "num_updates",
+                                                            "initialdesign", "optimality", "mm", "aliasmm", "blocking",
+                                                            "minDopt", "tolerance", "kexchange" ,"V","prog","nc"),
+                                                seed = TRUE)) %dofuture% {
+          randomindices = sample(nrow(candidatesetmm), trials, replace = initialreplace)
+          initialdesign = candidatesetmm[randomindices, ]
+          if (!is.null(augmentdesign)) {
+            initialdesign[seq_len(augmentedrows), ] = augmentdesignmm
           }
-          parallel_output[[counter]] = foreach(i = seq_len(single_batch_number), .export = c("genOptimalDesign","genBlockedOptimalDesign")) %dorng% {
-
-            randomindices = sample(nrow(candidatesetmm), trials, replace = initialreplace)
-            initialdesign = candidatesetmm[randomindices, ]
-            if (!is.null(augmentdesign)) {
-              initialdesign[seq_len(augmentedrows), ] = augmentdesignmm
+          if(progress || is_shiny) {
+            if(is_shiny && i %in% progressbarupdates) {
+              prog(sprintf(" (%i workers) ", nc), amount = repeats/num_updates)
             }
-            if(!blocking) {
-              genOptimalDesign(initialdesign = initialdesign, candidatelist = candidatesetmm,
-                               condition = optimality, momentsmatrix = mm, initialRows = randomindices,
-                               aliasdesign = aliasmm[randomindices, ],
-                               aliascandidatelist = aliasmm, minDopt = minDopt,
-                               tolerance = tolerance, augmentedrows = augmentedrows, kexchange = kexchange)
-            } else {
-              genBlockedOptimalDesign(initialdesign = initialdesign, candidatelist = candidatesetmm,
-                                      condition = optimality, V = V, momentsmatrix = mm, initialRows = randomindices,
-                                      aliasdesign = aliasmm[randomindices, ],
-                                      aliascandidatelist = aliasmm, minDopt = minDopt,
-                                      tolerance = tolerance, augmentedrows = augmentedrows, kexchange = kexchange)
+            if(!is_shiny) {
+              prog(amount = repeats/num_updates)
             }
           }
-          total_remaining = total_remaining - single_batch_number
-          counter = counter + 1
-          if(timer) {
-            pb$tick(single_batch_number)
-          }
-          if (!is.null(progressBarUpdater)) {
-            progressBarUpdater(single_batch_number / repeats)
+          if(!blocking) {
+            genOptimalDesign(initialdesign = initialdesign, candidatelist = candidatesetmm,
+                             condition = optimality, momentsmatrix = mm, initialRows = randomindices,
+                             aliasdesign = aliasmm[randomindices, ],
+                             aliascandidatelist = aliasmm, minDopt = minDopt,
+                             tolerance = tolerance, augmentedrows = augmentedrows, kexchange = kexchange)
+          } else {
+            genBlockedOptimalDesign(initialdesign = initialdesign, candidatelist = candidatesetmm,
+                                    condition = optimality, V = V, momentsmatrix = mm, initialRows = randomindices,
+                                    aliasdesign = aliasmm[randomindices, ],
+                                    aliascandidatelist = aliasmm, minDopt = minDopt,
+                                    tolerance = tolerance, augmentedrows = augmentedrows, kexchange = kexchange)
           }
         }
-      }, finally = {
-        tryCatch({
-          parallel::stopCluster(cl)
-        }, error = function (e) {})
-      })
-      genOutput = unlist(parallel_output, recursive  = FALSE)
+      }
+      genOutput = run_search(seq_len(repeats), advancedoptions$GUI)
     }
   } else {
     #Set up split-plot inputs
@@ -1026,15 +1029,15 @@ gen_design = function(candidateset, model, trials,
 
     #Finished setting up split-plot inputs
     if (!parallel) {
-      if(timer) {
-        pb = progress::progress_bar$new(format = "  Searching [:bar] :percent ETA: :eta",
-                                        total = repeats, clear = TRUE, width= 60)
+      if(progress) {
+        pb = progress::progress_bar$new(format = "  Searching (1 core) [:bar] (:current/:total, :tick_rate designs/s) ETA::eta",
+                                        total = repeats, clear = TRUE, width= 100)
       }
       for (i in seq_len(repeats)) {
         if (!is.null(progressBarUpdater)) {
           progressBarUpdater(1 / repeats)
         }
-        if(timer) {
+        if(progress && !advancedoptions$GUI) {
           pb$tick()
         }
         randomindices = sample(nrow(candidateset), trials, replace = initialreplace)
@@ -1046,54 +1049,40 @@ gen_design = function(candidateset, model, trials,
                                                  disallowed = disallowedcomb, anydisallowed = anydisallowed, tolerance = tolerance, kexchange = kexchange)
       }
     } else {
-      if (is.null(options("cores")[[1]])) {
-        numbercores = parallel::detectCores()
-      } else {
-        numbercores = options("cores")[[1]]
+      if(!getOption("skpr_progress", TRUE)) {
+        progressbarupdates = c()
       }
-      if(timer) {
-        pb = progress::progress_bar$new(format = "  Searching [:bar] :percent ETA: :eta",
-                                        total = repeats, clear = TRUE, width= 60)
+      if(!advancedoptions$GUI && progress) {
+        set_up_progressr_handler("Searching", "designs")
       }
-      cl = parallel::makeCluster(numbercores)
-      numbercores = length(cl)
-      tryCatch({
-        doParallel::registerDoParallel(cl)
-        number_updates = max(c(min(c(repeats/(2*numbercores),100)),1))
-        parallel_output = list()
-        single_batch_number = repeats/number_updates
-        total_remaining = repeats
-        counter = 1
-        while(total_remaining > 0) {
-          if(total_remaining < single_batch_number) {
-            single_batch_number = total_remaining
+      nc = future::nbrOfWorkers()
+      run_search = function(iterations, is_shiny) {
+        prog = progressr::progressor(steps = repeats)
+        foreach::foreach(i = iterations, .options.future = list(globals = c("genSplitPlotOptimalDesign", "candidatesetmm", "trials", "candidateset",
+                                                                            "initialreplace", "blockedmm", "interactionlist", "disallowedcomb",
+                                                                            "anydisallowed",
+                                                                            "progress", "is_shiny", "progressbarupdates", "repeats", "num_updates",
+                                                                            "initialdesign", "optimality", "mm", "aliasmm", "blockedmodelmatrix",
+                                                                            "minDopt", "tolerance",  "kexchange" ,"V" ,"prog" ,"nc"),
+                                                                seed = TRUE)) %dofuture% {
+          if(progress || is_shiny) {
+            if(is_shiny && i %in% progressbarupdates) {
+              prog(sprintf(" (%i workers) ", nc), amount = repeats/num_updates)
+            }
+            if(!is_shiny) {
+              prog(amount = repeats/num_updates)
+            }
           }
-          parallel_output[[counter]] = foreach(i = seq_len(repeats), .export = c("genSplitPlotOptimalDesign")) %dorng% {
-
-            randomindices = sample(nrow(candidateset), trials, replace = initialreplace)
-            genSplitPlotOptimalDesign(initialdesign = candidatesetmm[randomindices, -1, drop = FALSE],
+          randomindices = sample(nrow(candidateset), trials, replace = initialreplace)
+          genSplitPlotOptimalDesign(initialdesign = candidatesetmm[randomindices, -1, drop = FALSE],
                                     candidatelist = candidatesetmm[, -1, drop = FALSE], blockeddesign = blockedmodelmatrix,
                                     condition = optimality, momentsmatrix = blockedmm, initialRows = randomindices,
                                     blockedVar = V, aliasdesign = aliasmm[randomindices, -1, drop = FALSE],
                                     aliascandidatelist = aliasmm[, -1, drop = FALSE], minDopt = minDopt, interactions = interactionlist,
                                     disallowed = disallowedcomb, anydisallowed = anydisallowed, tolerance = tolerance, kexchange = kexchange)
-          }
-          total_remaining = total_remaining - single_batch_number
-          counter = counter + 1
-          if(timer) {
-            pb$tick(single_batch_number)
-          }
-          if (!is.null(progressBarUpdater)) {
-            progressBarUpdater(single_batch_number / repeats)
-          }
         }
-      }, finally = {
-        tryCatch({
-          parallel::stopCluster(cl)
-        }, error = function (e) {})
-      })
-      genOutput = unlist(parallel_output, recursive  = FALSE)
-
+      }
+      genOutput = run_search(seq_len(repeats), advancedoptions$GUI)
     }
   }
 
@@ -1501,4 +1490,5 @@ gen_design = function(candidateset, model, trials,
   }
   return(design)
 }
+
 globalVariables("i")

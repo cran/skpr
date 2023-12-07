@@ -17,7 +17,7 @@
 #'@param censorpoint The point after/before (for right-censored or left-censored data, respectively)
 #'which data should be labelled as censored. Default NA for no censoring. This argument is
 #'used only by the internal random number generators; if you supply your own function to
-#'the \code{rfunctionsurv} parameter, then this parameter will be ignored.
+#'the \code{rfunctionsurv} parameter, then this parameter will be ignoredcalculate_gefficiency.
 #'@param censortype The type of censoring (either "left" or "right"). Default "right".
 #'@param rfunctionsurv Random number generator function. Should be a function of the form f(X, b), where X is the
 #'model matrix and b are the anticipated coefficients. This function should return a \code{Surv} object from
@@ -29,14 +29,17 @@
 #'If you specify \code{anticoef}, \code{effectsize} will be ignored.
 #'@param contrasts Default \code{contr.sum}. Function used to encode categorical variables in the model matrix. If the user has specified their own contrasts
 #'for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.
-#'@param parallel If TRUE, uses all cores available to speed up computation of power. Default FALSE.
-#'@param detailedoutput If TRUE, return additional information about evaluation in results. Default FALSE.
+#'@param parallel Default `FALSE`. If `TRUE`, the power simulation will use all but one of the available cores.
+#' If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
+#' NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
+#'@param detailedoutput Default `FALSE`. If `TRUE`, return additional information about evaluation in results.
+#'@param progress Default `TRUE`. Whether to include a progress bar.
 #'@param advancedoptions Default NULL. Named list of advanced options. Pass `progressBarUpdater` to include function called in non-parallel simulations that can be used to update external progress bar.
 #'@param ... Any additional arguments to be passed into the \code{survreg} function during fitting.
 #'@return A data frame consisting of the parameters and their powers. The parameter estimates from the simulations are
 #'stored in the 'estimates' attribute. The 'modelmatrix' attribute contains the model matrix and the encoding used for
 #'categorical factors. If you manually specify anticipated coefficients, do so in the order of the model matrix.
-#'@import foreach doParallel stats iterators
+#'@import foreach doParallel stats iterators doFuture
 #'@details Evaluates the power of a design with Monte Carlo simulation. Data is simulated and then fit
 #'with a survival model (\code{survival::survreg}), and the fraction of simulations in which a parameter
 #'is significant
@@ -115,9 +118,12 @@
 eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
                                    nsim = 1000, distribution = "gaussian", censorpoint = NA, censortype = "right",
                                    rfunctionsurv = NULL, anticoef = NULL, effectsize = 2, contrasts = contr.sum,
-                                   parallel = FALSE, detailedoutput = FALSE, advancedoptions = NULL, ...) {
+                                   parallel = FALSE, detailedoutput = FALSE, progress = TRUE, advancedoptions = NULL, ...) {
   if(missing(design)) {
     stop("skpr: No design detected in arguments.")
+  }
+  if(!is.null(getOption("skpr_progress"))) {
+    progress = getOption("skpr_progress")
   }
   if(missing(model) || (is.numeric(model) && missing(alpha))) {
     if(is.numeric(model) && missing(alpha)) {
@@ -186,6 +192,9 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
 
   if (is.null(rfunctionsurv)) {
     if (distribution == "exponential") {
+      if(!is.na(censorpoint) && censorpoint <= 0) {
+        stop("For an exponential distribution, `censorpoint` must be greater than zero.")
+      }
       rfunctionsurv = function(X, b) {
         Y = rexp(n = nrow(X), rate = exp(-(X %*% b)))
         condition = censorfunction(Y, censorpoint)
@@ -194,6 +203,9 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
       }
     }
     if (distribution == "lognormal") {
+      if(!is.na(censorpoint) && censorpoint <= 0) {
+        stop("For an lognormal distribution, `censorpoint` must be greater than zero.")
+      }
       rfunctionsurv = function(X, b) {
         Y = rlnorm(n = nrow(X), meanlog = X %*% b, sdlog = 1)
         condition = censorfunction(Y, censorpoint)
@@ -223,6 +235,7 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
   for (x in names(RunMatrixReduced)[lapply(RunMatrixReduced, class) %in% c("character", "factor")]) {
     if (!(x %in% names(presetcontrasts))) {
       contrastslist[[x]] = contrasts
+      stats::contrasts(RunMatrixReduced[[x]]) = contrasts
     } else {
       contrastslist[[x]] = presetcontrasts[[x]]
     }
@@ -256,25 +269,26 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
 
   #---------------- Run Simulations ---------------#
 
-  progressbarupdates = floor(seq(1, nsim, length.out = 50))
+  num_updates = min(c(nsim, 200))
+  progressbarupdates = floor(seq(1, nsim, length.out = num_updates))
   progresscurrent = 1
   pvallist = list()
   estimates = matrix(0, nrow = nsim, ncol = nparam)
 
   if (!parallel) {
     power_values = rep(0, ncol(ModelMatrix))
-    for (j in 1:nsim) {
-      if (!is.null(progressBarUpdater)) {
-        if (nsim > 50) {
-          if (progressbarupdates[progresscurrent] == j) {
-            progressBarUpdater(1 / 50)
-            progresscurrent = progresscurrent + 1
-          }
-        } else {
-          progressBarUpdater(1 / nsim)
+    if(interactive() && progress) {
+      pb = progress::progress_bar$new(format = sprintf("  Calculating Power [:bar] (:current/:total, :tick_rate sim/s) ETA: :eta"),
+                                      total = nsim, clear = TRUE, width= 100)
+    }
+    for (j in seq_len(nsim)) {
+      if (advancedoptions$GUI && !is.null(progressBarUpdater)) {
+          #This code is to slow down the number of updates in the Shiny app--if there
+          #are too many updates, the progress bar will lag behind the actual computation
+        if (j %in% progressbarupdates) {
+          progressBarUpdater(1 / num_updates)
         }
       }
-
       #simulate the data.
       anticoef_adjusted = anticoef
 
@@ -283,11 +297,16 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
       model_formula = update.formula(model, Y ~ .)
 
       #fit a model to the simulated data.
-      fit = survival::survreg(model_formula, data = RunMatrixReduced, dist = distribution, ...)
+      fit = suppressWarnings(
+        suppressMessages(
+          survival::survreg(model_formula, data = RunMatrixReduced, dist = distribution, ...)
+        )
+      )
 
       #determine whether beta[i] is significant. If so, increment nsignificant
       pvals = extractPvalues(fit)[1:ncol(ModelMatrix)]
       pvals = pvals[order(factor(names(pvals), levels = parameter_names))]
+      pvals[is.na(pvals)] = 1
       stopifnot(all(names(pvals) == parameter_names))
       pvallist[[j]] = pvals
       power_values[pvals < alpha] = power_values[pvals < alpha] + 1
@@ -295,45 +314,64 @@ eval_design_survival_mc = function(design, model = NULL, alpha = 0.05,
     }
     power_values = power_values / nsim
     pvals = do.call(rbind, pvallist)
-
-  } else {
-    if (is.null(options("cores")[[1]])) {
-      numbercores = parallel::detectCores()
-    } else {
-      numbercores = options("cores")[[1]]
+    if(interactive() && progress && !advancedoptions$GUI) {
+      pb$tick()
     }
-    cl = parallel::makeCluster(numbercores)
-    numbercores = length(cl)
-    doParallel::registerDoParallel(cl)
-
-    tryCatch({
-      power_estimates = foreach::foreach (i = 1:nsim, .combine = "rbind", .export = ("extractPvalues"), .packages = c("survival")) %dopar% {
+  } else {
+    if(!getOption("skpr_progress", TRUE)) {
+      progressbarupdates = c()
+    }
+    if(!advancedoptions$GUI && progress) {
+      set_up_progressr_handler("Evaluating", "sims")
+    }
+    nc =  future::nbrOfWorkers()
+    run_search = function(iterations, is_shiny, surv_args) {
+      prog = progressr::progressor(steps = nsim)
+      foreach::foreach(i = iterations,
+                       .options.future = list(packages = "survival",
+                                              globals  = c("extractPvalues", "rfunctionsurv", "parameter_names", "progress", "progressbarupdates",
+                                                            "model", "distribution", "RunMatrixReduced", "ModelMatrix", "anticoef" ,"nc", "prog",
+                                                            "is_shiny", "num_updates", "nsim", "alpha", "surv_args"),
+                                              seed = TRUE)) %dofuture% {
+        if(i %in% progressbarupdates) {
+          if(is_shiny) {
+            prog(sprintf(" (%i workers) ", nc), amount = nsim/num_updates)
+          } else {
+            prog(amount = nsim/num_updates)
+          }
+        }
         power_values = rep(0, ncol(ModelMatrix))
         #simulate the data.
 
-        anticoef_adjusted = anticoef
-
-        RunMatrixReduced$Y = rfunctionsurv(ModelMatrix, anticoef_adjusted)
+        RunMatrixReduced$Y = rfunctionsurv(ModelMatrix, anticoef)
 
         model_formula = update.formula(model, Y ~ .)
 
-        #fit a model to the simulated data.
-        fit = survival::survreg(model_formula, data = RunMatrixReduced, dist = distribution, ...)
+        surv_args$formula = model_formula
+        surv_args$data = RunMatrixReduced
+        surv_args$dist = distribution
+
+        # fit a model to the simulated data.
+        fit = suppressWarnings(
+          suppressMessages(
+            do.call("survreg", args = surv_args)
+          )
+        )
 
         #determine whether beta[i] is significant. If so, increment nsignificant
         pvals = extractPvalues(fit)[1:ncol(ModelMatrix)]
         pvals = pvals[order(factor(names(pvals), levels = parameter_names))]
         stopifnot(all(names(pvals) == parameter_names))
+        pvals[is.na(pvals)] = 1
         power_values[pvals < alpha] = 1
         estimates = coef(fit)
         list("parameterpower" = power_values, "estimates" = estimates, "pvals" = pvals)
       }
-    }, finally  = {
-      parallel::stopCluster(cl)
-    })
-    power_values = apply(do.call(rbind, power_estimates[, "parameterpower"]), 2, sum) / nsim
-    pvals = do.call(rbind, power_estimates[, "pvals"])
-    estimates = do.call(rbind, power_estimates[, "estimates"])
+    }
+    power_estimates = run_search(seq_len(nsim), advancedoptions$GUI, args)
+    power_values = apply(do.call("rbind",lapply(power_estimates,\(x) x$parameterpower)), 2, sum) / nsim
+    pvals = do.call("rbind",lapply(power_estimates,\(x) x$pvals))
+    estimates = do.call("rbind",lapply(power_estimates,\(x) x$estimates))
   }
   #output the results (tidy data format)
   retval = data.frame(parameter = parameter_names,

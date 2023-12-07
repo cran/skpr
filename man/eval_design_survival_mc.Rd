@@ -18,6 +18,7 @@ eval_design_survival_mc(
   contrasts = contr.sum,
   parallel = FALSE,
   detailedoutput = FALSE,
+  progress = TRUE,
   advancedoptions = NULL,
   ...
 )
@@ -41,7 +42,7 @@ in the documentation for \code{survreg}. \emph{Supported} options are
 \item{censorpoint}{The point after/before (for right-censored or left-censored data, respectively)
 which data should be labelled as censored. Default NA for no censoring. This argument is
 used only by the internal random number generators; if you supply your own function to
-the \code{rfunctionsurv} parameter, then this parameter will be ignored.}
+the \code{rfunctionsurv} parameter, then this parameter will be ignoredcalculate_gefficiency.}
 
 \item{censortype}{The type of censoring (either "left" or "right"). Default "right".}
 
@@ -59,9 +60,13 @@ If you specify \code{anticoef}, \code{effectsize} will be ignored.}
 \item{contrasts}{Default \code{contr.sum}. Function used to encode categorical variables in the model matrix. If the user has specified their own contrasts
 for a categorical factor using the contrasts function, those will be used. Otherwise, skpr will use contr.sum.}
 
-\item{parallel}{If TRUE, uses all cores available to speed up computation of power. Default FALSE.}
+\item{parallel}{Default `FALSE`. If `TRUE`, the power simulation will use all but one of the available cores.
+If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
+NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.}
 
-\item{detailedoutput}{If TRUE, return additional information about evaluation in results. Default FALSE.}
+\item{detailedoutput}{Default `FALSE`. If `TRUE`, return additional information about evaluation in results.}
+
+\item{progress}{Default `TRUE`. Whether to include a progress bar.}
 
 \item{advancedoptions}{Default NULL. Named list of advanced options. Pass `progressBarUpdater` to include function called in non-parallel simulations that can be used to update external progress bar.}
 

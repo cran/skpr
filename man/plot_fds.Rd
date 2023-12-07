@@ -7,8 +7,9 @@
 plot_fds(
   genoutput,
   model = NULL,
-  continuouslength = 11,
+  continuouslength = 1001,
   plot = TRUE,
+  sample_size = 10000,
   yaxis_max = NULL,
   description = "Fraction of Design Space"
 )
@@ -22,6 +23,8 @@ of several designs, which will result in all of them being plotted in a row (for
 \item{continuouslength}{Default `11`. The precision of the continuous variables. Decrease for faster (but less precise) plotting.}
 
 \item{plot}{Default `TRUE`. Whether to plot the FDS, or just calculate the cumulative distribution function.}
+
+\item{sample_size}{Default `10000`. Number of samples to take of the design space.}
 
 \item{yaxis_max}{Default `NULL`. Manually set the maximum value of the prediction variance.}
 
