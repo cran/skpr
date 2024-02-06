@@ -1,4 +1,4 @@
-471b15d0edafa7ad8005a69a195fab3d *DESCRIPTION
+92a6545bd7d1cbd37257f057d3283361 *DESCRIPTION
 5274c29393e85f6d1ae7190b2c22c2cc *NAMESPACE
 88bcc117d119826688083f171e056e67 *NEWS
 5aca5df390fa5d2d162495ff996e525c *R/RcppExports.R
@@ -29,11 +29,11 @@ d1fe46cf0da6cd80633f2bccb38aaa09 *R/effectpowermc.R
 a2d4e4e4f785a4e4f6f82d920b681803 *R/eval_design.R
 b0f9d83585786403ee49d6e46af2637c *R/eval_design_custom_mc.R
 2b54e2e956cde68070d0d5bed5b57d4f *R/eval_design_mc.R
-32c36ec9286a2054d3dcc17077d6bcee *R/eval_design_survival_mc.R
+b0e0b8b094aaf2fb378278869a6565ea *R/eval_design_survival_mc.R
 4512eb228a6614b27073e034753bc384 *R/extractPvalues.R
 898b6ff9dba56fe894e0b4b56f264291 *R/gen_anticoef.R
 0f29e33d71198dba8c650262aea41278 *R/gen_binomial_anticoef.R
-d622829a7f9552287f990adda757dcef *R/gen_design.R
+f7703000c912e3c95e99cb7120f38064 *R/gen_design.R
 b5d4d3fb90f00aad7476822afe784d12 *R/gen_exponential_anticoef.R
 8c301b30512f18e3758b68350f31c2e9 *R/gen_momentsmatrix.R
 645fd88aeb60d6980ef4af3b19af55f9 *R/gen_poisson_anticoef.R
@@ -95,7 +95,7 @@ b59747fc6d1a7124a8adf6a5f936852f *man/effectpowermc.Rd
 4f46a3c8f67b9d1216af93f1d6108ad8 *man/eval_design.Rd
 a1486da831c3e07d816ca165e6da8f61 *man/eval_design_custom_mc.Rd
 0e0eab3a0d5f75d2b534c2fb220e0033 *man/eval_design_mc.Rd
-294539f93b78735ee6f648cddfed23bb *man/eval_design_survival_mc.Rd
+c4a96499830d5415a8e215186113ae86 *man/eval_design_survival_mc.Rd
 cedb34eb19268107027995959e1468b3 *man/extractPvalues.Rd
 2b178053ff74b8b028143dc23ef2184d *man/figures/skprlogo.png
 62f3b1fa2864c890bdb60b83c00a90af *man/gen_anticoef.Rd

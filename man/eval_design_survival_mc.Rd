@@ -42,7 +42,7 @@ in the documentation for \code{survreg}. \emph{Supported} options are
 \item{censorpoint}{The point after/before (for right-censored or left-censored data, respectively)
 which data should be labelled as censored. Default NA for no censoring. This argument is
 used only by the internal random number generators; if you supply your own function to
-the \code{rfunctionsurv} parameter, then this parameter will be ignoredcalculate_gefficiency.}
+the \code{rfunctionsurv} parameter, then this parameter will be ignored.}
 
 \item{censortype}{The type of censoring (either "left" or "right"). Default "right".}
 

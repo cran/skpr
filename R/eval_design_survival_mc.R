@@ -17,7 +17,7 @@
 #'@param censorpoint The point after/before (for right-censored or left-censored data, respectively)
 #'which data should be labelled as censored. Default NA for no censoring. This argument is
 #'used only by the internal random number generators; if you supply your own function to
-#'the \code{rfunctionsurv} parameter, then this parameter will be ignoredcalculate_gefficiency.
+#'the \code{rfunctionsurv} parameter, then this parameter will be ignored.
 #'@param censortype The type of censoring (either "left" or "right"). Default "right".
 #'@param rfunctionsurv Random number generator function. Should be a function of the form f(X, b), where X is the
 #'model matrix and b are the anticipated coefficients. This function should return a \code{Surv} object from
