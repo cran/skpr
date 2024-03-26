@@ -7,7 +7,7 @@
 calculate_gefficiency(
   design,
   calculation_type = "random",
-  randsearches = 1000,
+  randsearches = 10000,
   design_space_mm = NULL
 )
 }
@@ -15,6 +15,8 @@ calculate_gefficiency(
 Normalized run matrix
 }
 \description{
-Either calculates G-Efficiency by Monte Carlo sampling from the design space (ignoring constraints), searching for the maximum point (slower but higher quality), or by using a user-specified candidate set for the design space (fastest).
+Either calculates G-Efficiency by Monte Carlo sampling from the design space (ignoring constraints),
+searching for the maximum point (slower but higher quality), or by using a user-specified candidate set
+for the design space (fastest).
 }
 \keyword{internal}

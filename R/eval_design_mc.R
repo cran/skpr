@@ -49,7 +49,8 @@
 #'@param advancedoptions Default `NULL`. Named list of advanced options. `advancedoptions$anovatype` specifies the Anova type in the car package (default type `III`),
 #'user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
 #'`advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.
-#'If `advancedoptions$save_simulated_responses = TRUE`, the dataframe will have an attribute `simulated_responses` that contains the simulated responses from the power evaluation.
+#'If `advancedoptions$save_simulated_responses = TRUE`, the dataframe will have an attribute `simulated_responses` that contains the simulated responses from the power evaluation. `advancedoptions$ci_error_conf` will
+#'set the confidence level for power intervals, which are printed when `detailedoutput = TRUE`.
 #'@param parallel Default `FALSE`. If `TRUE`, the Monte Carlo power calculation will use all but one of the available cores. If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
 #' NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.
 #'@param ... Additional arguments.
@@ -144,6 +145,13 @@
 #'#model used in generating the design will be used.
 #'
 #'eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian")
+#'}
+#'if(skpr:::run_documentation()) {
+#'#We can also add error bars on the Monte Carlo power values by setting
+#'#`detailedoutput = TRUE` (which will print out other information as well).
+#'#We can set the confidence via the `advancedoptions` argument.
+#'eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian",
+#'               detailedoutput = TRUE, advancedoptions = list(ci_error_conf  = 0.8))
 #'}
 #'if(skpr:::run_documentation()) {
 #'#We see here we generate approximately the same parameter powers as we do
@@ -322,6 +330,9 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     }
     aliaspower = advancedoptions$aliaspower
   }
+  if(is.null(advancedoptions$ci_error_conf)) {
+    advancedoptions$ci_error_conf = 0.95
+  }
   alpha_adjust = FALSE
   if (adjust_alpha_inflation) {
     alpha_adjust = TRUE
@@ -460,20 +471,18 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   if (length(anticoef) != dim(ModelMatrix)[2]) {
     stop("skpr: Wrong number of anticipated coefficients")
   }
-
   #-------------- Blocking errors --------------#
-  #Variables used later: blockgroups, varianceratios, V
+  #Variables used later: blockgroups, varianceratios, V, blockstructure
   blocknames = rownames(run_matrix_processed)
   blocklist = strsplit(blocknames, ".", fixed = TRUE)
   if (any(lapply(blocklist, length) > 1)) {
     if (blocking) {
 
       blockstructure = do.call(rbind, blocklist)
-      blockgroups = apply(blockstructure, 2, blockingstructure)
+      blockgroups = get_block_groups(blockstructure)
 
 
       blockMatrixSize = nrow(run_matrix_processed)
-      V = diag(blockMatrixSize)
       if (length(blockgroups) == 1 | is.matrix(blockgroups)) {
         stop("skpr: No blocking detected. Specify block structure in row names or set blocking = FALSE")
       }
@@ -488,19 +497,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         stop("skpr: Wrong number of variance ratios specified. ", length(varianceratios),
              " variance ratios given c(",paste(varianceratios,collapse=", "), "), ", length(blockgroups), " expected. Either specify value for all blocking levels or one ratio for all blocks other than then run-to-run variance.")
       }
-
-      blockcounter = 1
-
-      blockgroups2 = blockgroups[-length(blockgroups)]
-      for (block in blockgroups2) {
-        V[1:block[1], 1:block[1]] =  V[1:block[1], 1:block[1]] + varianceratios[blockcounter]
-        placeholder = block[1]
-        for (i in 2:length(block)) {
-          V[(placeholder + 1):(placeholder + block[i]), (placeholder + 1):(placeholder + block[i])] = V[(placeholder + 1):(placeholder + block[i]), (placeholder + 1):(placeholder + block[i])] + varianceratios[blockcounter]
-          placeholder = placeholder + block[i]
-        }
-        blockcounter = blockcounter + 1
-      }
+      V = calculate_v_from_blocks(nrow(run_matrix_processed),
+                                  blockgroups, blockstructure, varianceratios)
     }
   } else {
     if (blocking) {
@@ -514,7 +512,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
   responses = matrix(ncol = nsim, nrow = nrow(ModelMatrix))
   if (blocking) {
     for (i in 1:nsim) {
-      responses[, i] = rfunction(ModelMatrix, anticoef, generate_noise_block(noise = varianceratios, groups = blockgroups))
+      responses[, i] = rfunction(ModelMatrix, anticoef, generate_noise_block(noise = varianceratios, groups = blockgroups, blockstructure))
     }
   } else {
     responses = replicate(nsim, rfunction(ModelMatrix, anticoef, rep(0, nrow(ModelMatrix))))
@@ -659,12 +657,13 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
                                          contrastslist = contrastslist, effect_anova = effect_anova)
           }
         } else {
+          fiterror = FALSE
           tryCatch({
             fit = suppressWarnings(suppressMessages({
               glm(model_formula, family = glmfamily, data = RunMatrixReduced, contrasts = contrastslist, method = method)
             }))
           }, error = function(e) {
-            fiterror = TRUE
+            fiterror <<- TRUE
           })
           if (calceffect && !fiterror) {
             effect_pvals = effectpowermc(fit, type = anovatype, test = pvalstring, test.statistic = anovatest,
@@ -720,6 +719,11 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
         pb$tick()
       }
     }
+    #Remove NULL values
+    effectpvallist = effectpvallist[lengths(effectpvallist) != 0]
+    if(length(effectpvallist) == 0 && calceffect) {
+      stop("skpr: All fits failed in the simulation.")
+    }
     #We are going to output a tidy data.frame with the results.
     attr(power_values, "pvals") = do.call(rbind, pvallist)
     if (calceffect) {
@@ -753,6 +757,7 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     run_search = function(iterations, is_shiny) {
       prog = progressr::progressor(steps = nsim)
       foreach::foreach (j = seq_along(iterations), .combine = "rbind",
+                        .errorhandling = "remove",
                         .options.future = list(packages = packagelist,
                                                globals = c("extractPvalues", "effectpowermc", "RunMatrixReduced", "is_shiny", "blocking",
                                                            "responses", "contrastslist", "model_formula", "glmfamily", "glmfamilyname", "calceffect",
@@ -972,6 +977,8 @@ eval_design_mc = function(design, model = NULL, alpha = 0.05,
     } else {
       retval$error_adjusted_alpha = alpha_parameter
     }
+    retval = add_ci_bounds_mc_power(retval, nsim = nsim, conf =  advancedoptions$ci_error_conf)
+    attr(retval, "mc.conf.int") = advancedoptions$ci_error_conf
   }
 
   colnames(estimates) = parameter_names

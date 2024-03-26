@@ -320,12 +320,11 @@ gen_design = function(candidateset, model, trials,
   } else {
     tolerance = advancedoptions$design_search_tolerance
   }
-
-  if (is.null(advancedoptions$alias_compare)) {
-    advancedoptions$alias_compare = TRUE
-  }
   #Check for progress bar and GUI options
   if (!is.null(advancedoptions)) {
+    if (is.null(advancedoptions$alias_compare)) {
+      advancedoptions$alias_compare = TRUE
+    }
     if (is.null(advancedoptions$GUI)) {
       advancedoptions$GUI = FALSE
     }
@@ -342,7 +341,7 @@ gen_design = function(candidateset, model, trials,
     if(!is.null(advancedoptions$g_efficiency_method) && advancedoptions$g_efficiency_method != "none") {
       if(advancedoptions$g_efficiency_method == "random") {
         if(is.null(advancedoptions$g_efficiency_samples))  {
-          advancedoptions$g_efficiency_samples = 1000
+          advancedoptions$g_efficiency_samples = 10000
         }
       } else if (advancedoptions$g_efficiency_method == "optim") {
         if(is.null(advancedoptions$g_efficiency_samples))  {
@@ -352,7 +351,7 @@ gen_design = function(candidateset, model, trials,
         if(is.null(advancedoptions$g_efficiency_samples) || is.numeric(advancedoptions$g_efficiency_samples))  {
           warning("no data.frame passed to advancedoptions$g_efficiency_samples, ignoring and using random sampling")
           advancedoptions$g_efficiency_method == "random"
-          advancedoptions$g_efficiency_samples = 1000
+          advancedoptions$g_efficiency_samples = 10000
         }
         contrastslisttemp = list()
         for (x in names(advancedoptions$g_efficiency_samples[lapply(advancedoptions$g_efficiency_samples, class) %in%
@@ -370,15 +369,30 @@ gen_design = function(candidateset, model, trials,
       } else {
         warning("advancedoptions$g_efficiency_method not recognized, defaulting to random search")
         advancedoptions$g_efficiency_method = "random"
-        advancedoptions$g_efficiency_samples = 1000
+        advancedoptions$g_efficiency_samples = 10000
       }
     } else {
-      advancedoptions$g_efficiency_method = "none"
+      if(optimality == "G") {
+        advancedoptions$g_efficiency_method = "random"
+        advancedoptions$g_efficiency_samples = 10000
+
+      } else {
+        advancedoptions$g_efficiency_method = "none"
+        advancedoptions$g_efficiency_samples = 10000
+      }
     }
   } else {
     advancedoptions = list()
+    advancedoptions$alias_compare = TRUE
     advancedoptions$GUI = FALSE
-    advancedoptions$g_efficiency_method = "none"
+    amodel = NULL
+    if(optimality == "G") {
+      advancedoptions$g_efficiency_method = "random"
+      advancedoptions$g_efficiency_samples = 1000
+    } else {
+      advancedoptions$g_efficiency_method = "none"
+      advancedoptions$g_efficiency_samples = 1000
+    }
     progressBarUpdater = NULL
   }
   #turn off progress bar for non-interactive sessions
@@ -527,7 +541,6 @@ gen_design = function(candidateset, model, trials,
   }
 
   fullcandidateset = unique(reduceRunMatrix(candidateset, model))
-
   if (is.null(splitplotdesign)) {
     candidateset = unique(reduceRunMatrix(candidateset, model, FALSE))
   } else {
@@ -574,7 +587,15 @@ gen_design = function(candidateset, model, trials,
               "' don't match candidate set '",paste0(cand_coltype[aug_coltype != cand_coltype],collapse=", "),
               "'--attempting to covert columns to that of the candidate set")
       for(i in seq_len(ncol(augmentdesign))) {
-        augmentdesign[,i] = methods::as(augmentdesign[,i],cand_coltype[i])
+        if(cand_coltype[i] == "factor") {
+          candsetlevels = levels(candidateset[,i])
+          augmentlevels = unique(augmentdesign[,i, drop = TRUE])
+          augmentlevels_unique = augmentlevels[!augmentlevels %in% candsetlevels]
+          candsetlevels_all = c(candsetlevels,augmentlevels_unique)
+          augmentdesign[,i] = factor(augmentdesign[,i, drop = TRUE],levels=candsetlevels_all)
+        } else {
+          augmentdesign[,i] = methods::as(augmentdesign[,i, drop = TRUE],cand_coltype[i])
+        }
       }
     }
     if (nrow(augmentdesign) >= trials) {
@@ -610,10 +631,15 @@ gen_design = function(candidateset, model, trials,
   blocking = FALSE
   #-----generate blocked design with replicates-----#
   if (!is.null(splitplotdesign)) {
+    if(nrow(splitplotdesign) == trials) {
+      model_terms_spd = paste0(sprintf("%s", colnames(attr(terms.formula(model),"factors"))),collapse=", ")
+      stop(sprintf("skpr: Desired number of trials (%i) must be greater than the number of runs in `splitplotdesign` (also %i). If these intended to be equal, include all the model terms in this layer (%s) in the generation of the previous layer.",
+                   trials, trials, model_terms_spd))
+    }
     if (!is.null(attr(splitplotdesign, "varianceratios"))) {
-      varianceRatios = c(attr(splitplotdesign, "varianceratios"), varianceratio)
+      varianceratios = c(attr(splitplotdesign, "varianceratios"), varianceratio)
     } else {
-      varianceRatios = varianceratio
+      varianceratios = varianceratio
     }
     splitplot = TRUE
     if (is.null(blocksizes)) {
@@ -652,10 +678,15 @@ gen_design = function(candidateset, model, trials,
       initialrownames = rep(rownames(splitplotdesign), blocksizes)
       blocklist = strsplit(initialrownames, ".", fixed = TRUE)
       existingblockstructure = do.call(rbind, blocklist)
-      blockgroups = apply(existingblockstructure, 2, blockingstructure)
+      blockgroups = get_block_groups(existingblockstructure)
+    } else {
+      existingblockstructure = do.call(rbind, blocklist)
+      names(blockgroups[[1]]) = unlist(blocklist)
     }
-    withinBlockRun = function(runs) seq_len(runs)
+    blockgroups[[length(blockgroups) + 1]] = seq_len(trials)
+    names(blockgroups[[length(blockgroups)]]) = seq_len(trials)
 
+    withinBlockRun = function(runs) seq_len(runs)
     blockIndicators = rep(seq_len(length(blocksizes)), blocksizes)
 
     blockvars = colnames(splitplotdesign)
@@ -664,10 +695,10 @@ gen_design = function(candidateset, model, trials,
       blocks[[i]] = spdnormalized[blockIndicators[i], ]
     }
 
-    blockRuns = c()
-    for (i in seq_len(length(blocksizes))) {
-      blockRuns = c(blockRuns, withinBlockRun(blocksizes[i]))
-    }
+    blockRuns = seq_len(sum(blocksizes))
+    # for (i in seq_len(length(blocksizes))) {
+      # blockRuns = c(blockRuns, withinBlockRun(blocksizes[i]))
+    # }
 
     if (length(blocks[[1]]) > 1) {
       splitPlotReplicateDesign = as.data.frame(do.call(rbind, blocks))
@@ -681,33 +712,26 @@ gen_design = function(candidateset, model, trials,
     } else {
       rownames(splitPlotReplicateDesign) = paste(blockIndicators, blockRuns, sep = ".")
     }
-    blockMatrixSize = sum(blocksizes)
-    if(length(varianceRatios) > 1) {
-      V = diag(blockMatrixSize) * varianceRatios[1]
-      blockcounter = 2
-    } else {
-      V = diag(blockMatrixSize)
-      blockcounter = 1
-    }
-    for (block in blockgroups) {
-      V[seq_len(block[1]), seq_len(block[1])] =  V[seq_len(block[1]), seq_len(block[1]) ] + varianceRatios[blockcounter]
-      placeholder = block[1]
-      for (i in seq_len(length(block))[-1]) {
-        V[seq(placeholder + 1, placeholder + block[i]),
-          seq(placeholder + 1,placeholder + block[i])] = V[seq(placeholder + 1, placeholder + block[i]),
-                                                           seq(placeholder + 1, placeholder + block[i])] + varianceRatios[blockcounter]
-        placeholder = placeholder + block[i]
-      }
-      blockcounter = blockcounter + 1
-    }
+    blockstructure = do.call("rbind", strsplit(rownames(splitPlotReplicateDesign), ".", fixed = TRUE))
+    number_runs = sum(blocksizes)
+    stopifnot(number_runs == trials)
+
+    V = calculate_v_from_blocks(number_runs,
+                                blockgroups, blockstructure, varianceratios)
     zlist = list()
+    #Remove last one, which is completely randomized
+    blockgroups = blockgroups[-length(blockgroups)]
+    blockmatrix = blockstructure[,-ncol(blockstructure), drop = FALSE]
     for (i in seq_len(length(blockgroups))) {
       tempblocks = blockgroups[[i]]
+      block_column = blockmatrix[,i,drop = TRUE]
       tempnumberblocks = length(tempblocks)
-      ztemp = matrix(0, nrow = trials, ncol = tempnumberblocks)
+      ztemp = matrix(0, nrow=trials, ncol=tempnumberblocks)
       currentrow = 1
       for (j in seq_len(tempnumberblocks)) {
-        ztemp[seq(currentrow, currentrow + tempblocks[j] - 1), j] = varianceRatios[i]
+        blockname = names(tempblocks)[j]
+        current_block = block_column == blockname
+        ztemp[current_block, j] = varianceratios[i]
         currentrow = currentrow + tempblocks[j]
       }
       zlist[[i]] = ztemp
@@ -944,6 +968,7 @@ gen_design = function(candidateset, model, trials,
       run_search = function(iterations, is_shiny) {
         prog = progressr::progressor(steps = repeats)
         foreach::foreach(i = iterations,
+                         .errorhandling = "remove",
                          .options.future = list(globals = c("genOptimalDesign","genBlockedOptimalDesign", "candidatesetmm", "trials",
                                                             "initialreplace", "augmentdesign", "augmentedrows", "augmentdesignmm",
                                                             "progress", "is_shiny", "progressbarupdates", "repeats", "num_updates",
@@ -1059,13 +1084,15 @@ gen_design = function(candidateset, model, trials,
       nc = future::nbrOfWorkers()
       run_search = function(iterations, is_shiny) {
         prog = progressr::progressor(steps = repeats)
-        foreach::foreach(i = iterations, .options.future = list(globals = c("genSplitPlotOptimalDesign", "candidatesetmm", "trials", "candidateset",
-                                                                            "initialreplace", "blockedmm", "interactionlist", "disallowedcomb",
-                                                                            "anydisallowed",
-                                                                            "progress", "is_shiny", "progressbarupdates", "repeats", "num_updates",
-                                                                            "initialdesign", "optimality", "mm", "aliasmm", "blockedmodelmatrix",
-                                                                            "minDopt", "tolerance",  "kexchange" ,"V" ,"prog" ,"nc"),
-                                                                seed = TRUE)) %dofuture% {
+        foreach::foreach(i = iterations,
+                         .errorhandling = "remove",
+                         .options.future = list(globals = c("genSplitPlotOptimalDesign", "candidatesetmm", "trials", "candidateset",
+                                                            "initialreplace", "blockedmm", "interactionlist", "disallowedcomb",
+                                                            "anydisallowed",
+                                                            "progress", "is_shiny", "progressbarupdates", "repeats", "num_updates",
+                                                            "initialdesign", "optimality", "mm", "aliasmm", "blockedmodelmatrix",
+                                                            "minDopt", "tolerance",  "kexchange" ,"V" ,"prog" ,"nc"),
+                                                seed = TRUE)) %dofuture% {
           if(progress || is_shiny) {
             if(is_shiny && i %in% progressbarupdates) {
               prog(sprintf(" (%i workers) ", nc), amount = repeats/num_updates)
@@ -1086,13 +1113,12 @@ gen_design = function(candidateset, model, trials,
       genOutput = run_search(seq_len(repeats), advancedoptions$GUI)
     }
   }
-
   designs = list()
   rowindicies = list()
   criteria = list()
   designcounter = 1
 
-  for (i in seq_len(repeats)) {
+  for (i in seq_len(length(genOutput))) {
     if (!is.na(genOutput[[i]]["criterion"])) {
       designs[designcounter] = genOutput[[i]]["modelmatrix"]
       rowindicies[designcounter] = genOutput[[i]]["indices"]
@@ -1166,7 +1192,10 @@ gen_design = function(candidateset, model, trials,
   }
 
   if (optimality == "A" || optimality == "I" || optimality == "ALIAS" || optimality == "G") {
-    criteria = criteria[criteria > 0]
+    negative_criteria = criteria < 0
+    criteria = criteria[!negative_criteria]
+    rowindicies = rowindicies[!negative_criteria]
+    designs = designs[!negative_criteria]
     if (length(criteria) == 0) {
       stop("skpr: No non-singular designs found--increase number of repeats.")
     }
@@ -1297,7 +1326,7 @@ gen_design = function(candidateset, model, trials,
     rownames(blockedmm) = colnames(designmm)
     attr(design, "moments.matrix") = blockedmm
     attr(design, "V") = V
-    attr(design, "varianceratios") = varianceRatios
+    attr(design, "varianceratios") = varianceratios
     attr(design, "z.matrix.list") = zlist
     finallist = list()
     counterfinallist = 1
@@ -1356,7 +1385,7 @@ gen_design = function(candidateset, model, trials,
 
   if (!splitplot && !blocking) {
     tryCatch({
-      if(advancedoptions$g_efficiency_method == "none") {
+      if(advancedoptions$g_efficiency_method == "none" && optimality != "G") {
         attr(design, "G") = "Not Computed"
       } else if(advancedoptions$g_efficiency_method != "custom") {
         attr(design, "G") = calculate_gefficiency(design, calculation_type = advancedoptions$g_efficiency_method,
@@ -1443,7 +1472,7 @@ gen_design = function(candidateset, model, trials,
     finalrownames = rownames(design)
     blocklist = strsplit(finalrownames, ".", fixed = TRUE)
     existingblockstructure = do.call(rbind, blocklist)
-    blockgroups = apply(existingblockstructure, 2, blockingstructure)
+    blockgroups = get_block_groups(existingblockstructure)
     blocklengths = lapply(blockgroups, length)
     blockcols = list()
     blocknames = paste0("Block", seq_len(ncol(existingblockstructure) - 1))

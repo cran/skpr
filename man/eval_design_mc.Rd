@@ -91,7 +91,8 @@ and then again given effect size to calculate power values.}
 \item{advancedoptions}{Default `NULL`. Named list of advanced options. `advancedoptions$anovatype` specifies the Anova type in the car package (default type `III`),
 user can change to type `II`). `advancedoptions$anovatest` specifies the test statistic if the user does not want a `Wald` test--other options are likelyhood-ratio `LR` and F-test `F`.
 `advancedoptions$progressBarUpdater` is a function called in non-parallel simulations that can be used to update external progress bar.`advancedoptions$GUI` turns off some warning messages when in the GUI.
-If `advancedoptions$save_simulated_responses = TRUE`, the dataframe will have an attribute `simulated_responses` that contains the simulated responses from the power evaluation.}
+If `advancedoptions$save_simulated_responses = TRUE`, the dataframe will have an attribute `simulated_responses` that contains the simulated responses from the power evaluation. `advancedoptions$ci_error_conf` will
+set the confidence level for power intervals, which are printed when `detailedoutput = TRUE`.}
 
 \item{...}{Additional arguments.}
 }
@@ -194,6 +195,13 @@ if(skpr:::run_documentation()) {
 #model used in generating the design will be used.
 
 eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian")
+}
+if(skpr:::run_documentation()) {
+#We can also add error bars on the Monte Carlo power values by setting
+#`detailedoutput = TRUE` (which will print out other information as well).
+#We can set the confidence via the `advancedoptions` argument.
+eval_design_mc(designcoffee, nsim = 100, glmfamily = "gaussian",
+              detailedoutput = TRUE, advancedoptions = list(ci_error_conf  = 0.8))
 }
 if(skpr:::run_documentation()) {
 #We see here we generate approximately the same parameter powers as we do
