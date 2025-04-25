@@ -19,6 +19,8 @@ eval_design_mc(
   firth = FALSE,
   effectsize = 2,
   contrasts = contr.sum,
+  high_resolution_candidate_set = NA,
+  moment_sample_density = 20,
   parallel = FALSE,
   adjust_alpha_inflation = FALSE,
   detailedoutput = FALSE,
@@ -76,6 +78,16 @@ for a categorical factor using the contrasts function, those will be used. Other
 If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
 NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.}
 
+\item{high_resolution_candidate_set}{Default `NA`. If you have continuous numeric terms and disallowed combinations, the closed-form I-optimality value
+cannot be calculated and must be approximated by numeric integration. This requires sampling the allowed space densely, but most candidate sets will provide
+a sparse sampling of allowable points. To work around this, skpr will generate a convex hull of the numeric terms for each unique combination of categorical
+factors to generate a dense sampling of the space and cache that value internally, but this is a slow calculation and does not support non-convex candidate sets.
+To speed up moment matrix calculation,  pass a higher resolution version of your candidate set here with the disallowed combinations already applied.
+If you generated your design externally from skpr, there are disallowed combinations in your design, and need correct I-optimalituy values, you must pass your candidate set here.}
+
+\item{moment_sample_density}{Default `20`. The density of points to sample when calculating the moment matrix to compute I-optimality. Only
+required if the design was generated outside of skpr and there are disallowed combinations.}
+
 \item{parallel}{Default `FALSE`. If `TRUE`, the Monte Carlo power calculation will use all but one of the available cores. If the user wants to set the number of cores manually, they can do this by setting `options("cores")` to the desired number (e.g. `options("cores" = parallel::detectCores())`).
 NOTE: If you have installed BLAS libraries that include multicore support (e.g. Intel MKL that comes with Microsoft R Open), turning on parallel could result in reduced performance.}
 
@@ -99,7 +111,7 @@ set the confidence level for power intervals, which are printed when `detailedou
 \value{
 A data frame consisting of the parameters and their powers, with supplementary information
 stored in the data frame's attributes. The parameter estimates from the simulations are stored in the "estimates"
-attribute. The "modelmatrix" attribute contains the model matrix that was used for power evaluation, and
+attribute. The "model.matrix" attribute contains the model matrix that was used for power evaluation, and
 also provides the encoding used for categorical factors. If you want to specify the anticipated
 coefficients manually, do so in the order the parameters appear in the model matrix.
 }

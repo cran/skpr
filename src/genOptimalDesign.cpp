@@ -1,6 +1,8 @@
+#include <Rcpp.h>
 #include <RcppEigen.h>
 // [[Rcpp::depends(RcppEigen)]]
 #include <queue>
+#include <string>
 
 #include "optimalityfunctions.h"
 #include "nullify_alg.h"
@@ -21,12 +23,12 @@ using namespace Rcpp;
 //`@param augmentedrows The rows that are fixed during the design search.
 //`@return List of design information.
 // [[Rcpp::export]]
-List genOptimalDesign(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& candidatelist,
-                      const std::string condition,
-                      const Eigen::MatrixXd& momentsmatrix, Eigen::VectorXd initialRows,
-                      Eigen::MatrixXd aliasdesign,
-                      const Eigen::MatrixXd& aliascandidatelist,
-                      double minDopt, double tolerance, int augmentedrows, int kexchange) {
+Rcpp::List genOptimalDesign(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& candidatelist,
+                            const std::string condition,
+                            const Eigen::MatrixXd& momentsmatrix, Eigen::VectorXd initialRows,
+                            Eigen::MatrixXd aliasdesign,
+                            const Eigen::MatrixXd& aliascandidatelist,
+                            double minDopt, double tolerance, int augmentedrows, int kexchange) {
   RNGScope rngScope;
   int nTrials = initialdesign.rows();
   double numberrows = initialdesign.rows();
@@ -73,7 +75,7 @@ List genOptimalDesign(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& cand
     Eigen::VectorXi initrows = orthogonal_initial(candidatelist, nTrials);
     //If all elements are equal here, nullification algorithm was unable to find a design--return NA
     if(initrows.minCoeff() == initrows.maxCoeff()) {
-      return(List::create(_["indices"] = NumericVector::get_na(), _["modelmatrix"] = NumericMatrix::get_na(), _["criterion"] = NumericVector::get_na()));
+      return(List::create(_["indices"] = NumericVector::get_na(), _["model.matrix"] = NumericMatrix::get_na(), _["criterion"] = NumericVector::get_na()));
     }
 
     //Replace non-augmented rows with orthogonal design
@@ -93,7 +95,7 @@ List genOptimalDesign(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& cand
   }
   //If still no non-singular design, returns NA.
   if (isSingular(initialdesign)) {
-    return(List::create(_["indices"] = NumericVector::get_na(), _["modelmatrix"] = NumericMatrix::get_na(), _["criterion"] = NumericVector::get_na()));
+    return(List::create(_["indices"] = NumericVector::get_na(), _["model.matrix"] = NumericMatrix::get_na(), _["criterion"] = NumericVector::get_na()));
   }
 
   bool found = true;
@@ -529,6 +531,6 @@ List genOptimalDesign(Eigen::MatrixXd initialdesign, const Eigen::MatrixXd& cand
     }
   }
   //return the model matrix and a list of the candidate list indices used to construct the run matrix
-  return(List::create(_["indices"] = candidateRow, _["modelmatrix"] = initialdesign, _["criterion"] = newOptimum));
+  return(List::create(_["indices"] = candidateRow, _["model.matrix"] = initialdesign, _["criterion"] = newOptimum));
 }
 

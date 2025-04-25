@@ -17,6 +17,8 @@ eval_design(
   reorder_factors = FALSE,
   detailedoutput = FALSE,
   advancedoptions = NULL,
+  high_resolution_candidate_set = NA,
+  moment_sample_density = 20,
   ...
 )
 }
@@ -62,6 +64,17 @@ The reordering will be presenting in the output when `detailedoutput = TRUE`.}
 
 \item{advancedoptions}{Default `NULL`. A named list with parameters to specify additional attributes to calculate. Options: `aliaspower`
 gives the degree at which the Alias matrix should be calculated.}
+
+\item{high_resolution_candidate_set}{Default `NA`. If you have continuous numeric terms and disallowed combinations, the closed-form I-optimality value
+cannot be calculated and must be approximated by numeric integration. This requires sampling the allowed space densely, but most candidate sets will provide
+a sparse sampling of allowable points. To work around this, skpr will generate a convex hull of the numeric terms for each unique combination of categorical
+factors to generate a dense sampling of the space and cache that value internally, but this is a slow calculation and does not support non-convex candidate sets.
+To speed up moment matrix calculation,  pass a higher resolution version of your candidate set here with the disallowed combinations already applied.
+If you generated your design externally from skpr, there are disallowed combinations in your design, and need correct I-optimalituy values, you must pass your candidate set here.}
+
+\item{moment_sample_density}{Default `20`. The density of points to sample when calculating the moment matrix to compute I-optimality. Only
+required if the design was generated outside of skpr and there are disallowed combinations. It is much faster and potentially more accurate to
+provide your own candidate set with higher resolution continuous factors to `high_resolution_candidate_set`.`}
 
 \item{...}{Additional arguments.}
 }
