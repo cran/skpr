@@ -1,4 +1,4 @@
-0e86777ff5d5c5035c11003cbdb66060 *DESCRIPTION
+047c547b13797d87a2510ddaa4d841f3 *DESCRIPTION
 5274c29393e85f6d1ae7190b2c22c2cc *NAMESPACE
 88bcc117d119826688083f171e056e67 *NEWS
 5aca5df390fa5d2d162495ff996e525c *R/RcppExports.R
@@ -15,7 +15,7 @@ f4e86f985ba3297f80ed9dd78f5601e8 *R/calc_interaction_degrees.R
 24a30c856413eebc060baffa66a2fd90 *R/calculate_block_nesting.R
 82443abf7ffe881fcf434115081f53b2 *R/calculate_convex_hull_moment_matrix.R
 658e118c47f1fddfc1d664a1f1724c24 *R/calculate_degrees_of_freedom.R
-c342cd227c952e9b0c2e01c73f1995ef *R/calculate_gefficiency.R
+19424ed16e1e8781e09af35e3839c454 *R/calculate_gefficiency.R
 a72bb3536c92575a60e03193c8acf4df *R/calculate_level_vector.R
 83609df58fe450d3f60cfab580741a04 *R/calculate_power_curves.R
 676859b304c9ba06ca36747c870892c1 *R/calculate_split_columns.R
@@ -39,7 +39,7 @@ a36e4ab7684b72a12959f833d63e9961 *R/constructRunMatrix.R
 433b31c005f10c6ddc7a3d11adf74d8b *R/extractPvalues.R
 053847a4d3a8be1205fcfa6f0c34ff2d *R/gen_anticoef.R
 b147a26d5044f29e62180ab83c9f4e7b *R/gen_binomial_anticoef.R
-c2b2c15d9d895950ad33f176e90cc646 *R/gen_design.R
+a106cd4a050ac2977c929f0a1ce42e11 *R/gen_design.R
 b433ff8a13818820113acfbd15ee6c22 *R/gen_exponential_anticoef.R
 d09f952cb22603e8d2e8c44406f27154 *R/gen_momentsmatrix_ideal.R
 4b1bab59446041cb214b2bbb89ecf5f1 *R/gen_poisson_anticoef.R
@@ -53,13 +53,13 @@ cc6c5d282d04a10c8f55f6ed484e1031 *R/get_attribute.R
 76ea3c24c8b149ede05345916b8209a2 *R/input_validation.R
 f9acadd049e215f1b6c1da37e135f8a6 *R/is_intralayer_interaction.R
 53c5af293f469c667e324ed05b66aa49 *R/methods.R
-3c06aca2c7ed1f687c62ef087a0e90b1 *R/normalize_design.R
+0f97be8f5f3b24a91b1e1aeb81b7173a *R/normalize_design.R
 55a5ebc01244813c91257ddda71362d9 *R/normalize_numeric_runmatrix.R
 5cdc48777fe055416ef6e620a459115e *R/parameterpower.R
 bde684834f0683d4b4cd946174c5d35c *R/permutation_functions.R
 ed4e3002e70f0ec9c380983c0770d660 *R/pipeimport.R
-e757d6ea07bf1a9b40f9f360210784d6 *R/plot_correlations.R
-8a5b56c2826e000ecd210453b91cc0c9 *R/plot_fds.R
+987f2d96e1d2da9de5854d03828c4e76 *R/plot_correlations.R
+52c7e4c3f6d1a051dd36c387ea1385fa *R/plot_fds.R
 b95ccb800aa26dd4bfb8b0908b47a621 *R/priorlevels.R
 4f4908a3f1b135f73b7c063007d92b62 *R/quad.R
 37765449f71291dacdae77148798f4e9 *R/rearrange_formula_by_order.R
@@ -68,7 +68,8 @@ b95ccb800aa26dd4bfb8b0908b47a621 *R/priorlevels.R
 fb046608060d0db900bb31c36e129ada *R/run_documentation.R
 fc5033352565970b5c09d1c03d7c653e *R/set_up_progressr_handler.R
 0d59d81312a2a66d82eb9c366c0046a4 *R/skpRcpp.R
-0b7e27b046c442a0117080b7d7da38e0 *R/skprGUI.R
+00dcb5f195820440e91370357ab48db2 *R/skprGUI.R
+373380ccb0e758a5c55ecfd0ca3354f8 *R/skprGUI_code_pane.R
 da2f0f01b1c2036401a9a8b8f3fdb931 *R/skprGUI_dynamic_ui_elements.R
 fd3e9ba2bba37c90188cf9cfbdf49918 *R/startupmessage.R
 54d657bcd50c9c998d4b56aa815bd259 *R/zzz.R
@@ -78,6 +79,7 @@ fd3e9ba2bba37c90188cf9cfbdf49918 *R/startupmessage.R
 87410d7079a43494b1a0a7a36445aede *man/anticoef_from_delta.Rd
 75b2b9e1f59da7fb24a15ef148e4e334 *man/anticoef_from_delta_surv.Rd
 7e7206fc271b06a49b00f38d2620456e *man/blockingstructure.Rd
+84e10c1fd7b23fe5e39adb4df903f8f0 *man/build_code_pane_html.Rd
 8a541335b1a0696c454dbd174a17aef8 *man/calc_conservative_anticoef.Rd
 146e0f379889ba66d9076f7926020fd0 *man/calc_interaction_degrees.Rd
 27eb9bbf114d5288446f81e267703afd *man/calcblocksizes.Rd
@@ -98,6 +100,7 @@ fd3e9ba2bba37c90188cf9cfbdf49918 *R/startupmessage.R
 1165da9102c5fe72ee67dfc68ab5eeca *man/convert_model_dots.Rd
 555a883a3e50e2aa6a0a95ef48336767 *man/convert_rownames_to_covariance.Rd
 c06ad0242b459defc64e12d0fed7ae75 *man/convhull_halfspace.Rd
+3bdfe09094f5bfa0b72d56e399a3a2fd *man/create_code_pane_reactives.Rd
 9a3635252089f8d0431fd5a948267d79 *man/detect_disallowed_combinations.Rd
 e1c77f291c672e8cc8166bc2559bb880 *man/disallowed_combinations.Rd
 3400b9e7ce75ebbd6dec558d9ad2f020 *man/effectpower.Rd
@@ -149,11 +152,15 @@ d2d4e0513fc7227d5eb55c8e323f1f50 *man/set_up_progressr_handler.Rd
 2a6f9e9e044a78154d3cfda5936d6f48 *src/Makevars
 2a6f9e9e044a78154d3cfda5936d6f48 *src/Makevars.win
 0f60c5830f3bc5f3f5ecc263db3ac4f8 *src/RcppExports.cpp
-d8b44ed74d683a654f5e29c981a62567 *src/exported_optimality.cpp
-34ad268e825d5b80dd897c6f30485c10 *src/genOptimalDesign.cpp
-bccd016eb42e7e7d5807a332ac430cfd *src/genSplitPlotOptimalDesign.cpp
-5462cd72174d3d375eec98be8886953b *src/getBlockedOptimalDesign.cpp
+c7027d113471822c5279d7b6dde32d46 *src/blocked_optimality_functions.cpp
+9bc313b5efe14512e4cccb47bcd9dd69 *src/design_utils.h
+24ecc70d9ac31b9db0e0fc4819b78df4 *src/exported_optimality.cpp
+a0676711c6aa855815638b893c8d155e *src/exported_optimality_2.cpp
+d184755f0adb1cf109981c236a19de05 *src/genOptimalDesign.cpp
+274550498351a105b3c6324faae723da *src/genSplitPlotOptimalDesign.cpp
+05ba33181207774c92bd143e053b3682 *src/getBlockedOptimalDesign.cpp
 92786ec9108358eb1670c6dfa18bbb4b *src/nullify_alg.cpp
 11b7928b83caf03d6d3e815f1a59731f *src/nullify_alg.h
-2e6933042478caebfc751440d2c28f75 *src/optimalityfunctions.cpp
+efe4678b90d6003dd3cf776a28805409 *src/optimalityfunctions.cpp
 03aee7f3d4bf95b5ccadf2d3cb3de7c8 *src/optimalityfunctions.h
+388df3d825d462192c7c8febc8931925 *src/optimalityfunctions2.cpp

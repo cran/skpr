@@ -54,40 +54,115 @@ plot_fds = function(
   high_resolution_candidate_set = NA
 ) {
   if (inherits(skpr_output, "list") && length(skpr_output) > 1) {
-    old.par = par(no.readonly = TRUE)
-    on.exit(par(old.par), add = TRUE)
-    par(mfrow = c(1, length(skpr_output)))
-    fds_values = list()
+    fds_values = vector("list", length(skpr_output))
     if (!plot && !is.null(yaxis_max)) {
       warning(
         "`plot = FALSE` but `yaxis_max` non-NULL. Setting `yaxis_max` to NULL"
       )
       yaxis_max = NULL
     }
+    for (i in seq_along(skpr_output)) {
+      fds_values[[i]] = plot_fds(
+        skpr_output[[i]],
+        model = model,
+        continuouslength = continuouslength,
+        plot = FALSE,
+        sample_size = sample_size,
+        moment_sample_density = moment_sample_density,
+        candidate_set = candidate_set,
+        high_resolution_candidate_set = high_resolution_candidate_set
+      )
+    }
     if (is.null(yaxis_max)) {
-      for (i in 1:length(skpr_output)) {
-        fds_values[[i]] = plot_fds(
-          skpr_output[[i]],
-          model = model,
-          continuouslength = continuouslength,
-          plot = FALSE
-        )
-      }
-      yaxis_max = max(unlist(fds_values)) + max(unlist(fds_values)) / 20
+      flattened = unlist(fds_values, use.names = FALSE)
+      yaxis_max = max(flattened) + max(flattened) / 20
     }
     if (length(description) == 1) {
       description = rep(description, length(skpr_output))
     }
     if (plot) {
-      for (i in 1:length(skpr_output)) {
-        fds_values[[i]] = plot_fds(
-          skpr_output[[i]],
-          model = model,
-          continuouslength = continuouslength,
-          plot = plot,
-          yaxis_max = yaxis_max,
-          description = description[i]
+      mid_index = function(values) {
+        max(1, min(length(values), round(sample_size / 2)))
+      }
+      plot_list = vector("list", length(skpr_output))
+      for (i in seq_along(skpr_output)) {
+        values = fds_values[[i]]
+        midval = values[mid_index(values)]
+        fraction = seq_along(values) / length(values)
+        maxval = max(values)
+        df = data.frame(
+          fraction = fraction,
+          variance = values
         )
+        plot_list[[i]] = ggplot2::ggplot(
+          df,
+          ggplot2::aes(x = fraction, y = variance)
+        ) +
+          ggplot2::geom_line(color = "blue", linewidth = 1) +
+          ggplot2::geom_vline(
+            xintercept = 0.5,
+            linetype = "dashed",
+            color = "red"
+          ) +
+          ggplot2::geom_hline(
+            yintercept = midval,
+            linetype = "dashed",
+            color = "red"
+          ) +
+          ggplot2::geom_hline(
+            yintercept = maxval,
+            linetype = "dashed",
+            color = "black"
+          ) +
+          ggplot2::annotate(
+            "text",
+            label = sprintf("Mid PV: %0.3f", midval),
+            x = 0,
+            hjust = 0.0,
+            y = midval,
+            vjust = -0.25,
+            fontface = "bold",
+            size = 6,
+            color = "red"
+          ) +
+          ggplot2::annotate(
+            "text",
+            label = sprintf("Max PV: %0.3f", maxval),
+            x = 0,
+            hjust = 0.0,
+            y = maxval,
+            vjust = -0.25,
+            size = 6,
+            color = "black",
+            fontface = "bold",
+          ) +
+          ggplot2::scale_x_continuous(
+            limits = c(0, 1),
+            expand = c(0, 0.0)
+          ) +
+          ggplot2::scale_y_continuous(
+            limits = c(0, maxyaxis),
+            expand = ggplot2::expansion(mult = 0)
+          ) +
+          ggplot2::labs(
+            x = description,
+            y = "Prediction Variance"
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(margins = ggplot2::unit(c(20, 20, 20, 20), "points")) +
+          ggplot2::theme(text = ggplot2::element_text(size = 24)) +
+          ggplot2::coord_cartesian(clip = F)
+      }
+      if (requireNamespace("gridExtra", quietly = TRUE)) {
+        do.call(
+          gridExtra::grid.arrange,
+          c(plot_list, list(nrow = 1))
+        )
+      } else {
+        warning(
+          "Package `gridExtra` not available; displaying plots sequentially."
+        )
+        lapply(plot_list, print)
       }
     }
     return(invisible(fds_values))
@@ -136,7 +211,7 @@ plot_fds = function(
       model = ~.
       model_matrix = model.matrix(
         model,
-        design,
+        data = design,
         contrasts.arg = temp_contrasts_list
       )
       factors = colnames(model_matrix)
@@ -145,13 +220,12 @@ plot_fds = function(
     new_model = TRUE
     model_matrix = model.matrix(
       model,
-      design,
+      data = design,
       contrasts.arg = temp_contrasts_list
     )
     factors = colnames(model_matrix)
   }
   #Need these inputs
-  model_matrix = attr(skpr_output, "model_matrix")
   if (!is.null(attr(skpr_output, "runmatrix"))) {
     design = attr(skpr_output, "runmatrix")
   } else {
@@ -187,6 +261,25 @@ plot_fds = function(
   }
   normalized_candidate_set = normalize_design(candidate_set)
 
+  candset_verts = candidate_set
+  for (i in seq_len(ncol(candset_verts))) {
+    if (is.numeric(candset_verts[[i]])) {
+      num_col = candset_verts[[i]]
+      min_max = range(candset_verts[[i]])
+      is_exterior = num_col %in% min_max
+      candset_verts = candset_verts[is_exterior, , drop = FALSE]
+    }
+  }
+  contrastslist = attr(design, "contrastslist")
+  candset_mm = model.matrix(
+    model,
+    data = candset_verts,
+    contrasts = contrastslist
+  )
+  invXtX = solve(t(model_matrix) %*% model_matrix)
+
+  spv_verts = diag(candset_mm %*% invXtX %*% t(candset_mm))
+
   #Need to generate this here
   Iopt = attr(skpr_output, "I")
   if (is.na(Iopt)) {
@@ -204,7 +297,7 @@ plot_fds = function(
     } else {
       model_matrix_cor = model.matrix(
         model,
-        design,
+        data = design,
         contrasts.arg = temp_contrasts_list
       )
     }
@@ -214,7 +307,7 @@ plot_fds = function(
       diag(nrow(model_matrix_cor))
     )
   }
-  if (is.null(Iopt)) {
+  if (is.na(Iopt) || is.null(Iopt)) {
     stop(
       "No I-optimality value found in design--was your design generated outside of skpr? If so, pass in a high resolution candidate set to `high_resolution_candidate_set` to ensure I-optimality is computed."
     )
@@ -238,7 +331,7 @@ plot_fds = function(
   }
   sample_list = list()
 
-  for (col in 1:ncol(skpr_output)) {
+  for (col in seq_len(ncol(skpr_output))) {
     if (inherits(skpr_output[, col], c("factor", "character"))) {
       vals = unique(skpr_output[, col])
     }
@@ -254,26 +347,15 @@ plot_fds = function(
   samples = as.data.frame(sample_list)
 
   #------Normalize/Center numeric columns ------#
-  for (column in 1:ncol(skpr_output)) {
-    if (is.numeric(skpr_output[, column])) {
-      midvalue = mean(c(max(skpr_output[, column]), min(skpr_output[, column])))
-      skpr_output[, column] = (skpr_output[, column] - midvalue) /
-        (max(skpr_output[, column]) - midvalue)
-    }
-  }
-  mm = model.matrix(model, skpr_output, contrasts.arg = contrastlist)
+  skpr_output_norm = normalize_design(skpr_output)
+  mm = model.matrix(model, skpr_output_norm, contrasts.arg = contrastlist)
   samplemm = model.matrix(model, samples, contrasts.arg = contrastlist)
 
   testcor = solve(t(mm) %*% solve(V) %*% mm)
 
-  v = list()
+  vals_interior = diag(samplemm %*% testcor %*% t(samplemm))
 
-  for (i in 1:nrow(samplemm)) {
-    xi = samplemm[i, ]
-    v[[i]] = t(xi) %*% testcor %*% xi
-  }
-
-  vars = do.call(rbind, v)
+  vars = c(spv_verts, vals_interior)
   varsordered = vars[order(vars)]
   meanindex = which(
     abs(mean(varsordered) - varsordered) ==
@@ -292,27 +374,71 @@ plot_fds = function(
     maxyaxis = yaxis_max
   }
   if (plot) {
-    plot(
-      1:length(varsorderedscaled) / length(varsorderedscaled),
-      varsorderedscaled,
-      ylim = c(0, maxyaxis),
-      type = "n",
-      xlab = description,
-      ylab = "Prediction Variance",
-      xlim = c(0, 1),
-      xaxs = "i",
-      yaxs = "i"
+    mid_index = max(1, min(length(varsorderedscaled), round(sample_size / 2)))
+    midval = varsorderedscaled[mid_index]
+    df = data.frame(
+      fraction = seq_along(varsorderedscaled) / length(varsorderedscaled),
+      variance = varsorderedscaled
     )
-    abline(v = 0.5, untf = FALSE, lty = 2, col = "red", lwd = 2)
-    abline(h = midval, untf = FALSE, lty = 2, col = "red", lwd = 2)
-    lines(
-      1:length(varsorderedscaled) / length(varsorderedscaled),
-      varsorderedscaled,
-      lwd = 2,
-      col = "blue"
-    )
-    invisible(varsorderedscaled)
-  } else {
-    return(varsorderedscaled)
+    maxval = max(varsorderedscaled)
+    plot_obj = ggplot2::ggplot(df, ggplot2::aes(x = fraction, y = variance)) +
+      ggplot2::geom_line(color = "blue", linewidth = 1) +
+      ggplot2::geom_vline(
+        xintercept = 0.5,
+        linetype = "dashed",
+        color = "red"
+      ) +
+      ggplot2::geom_hline(
+        yintercept = midval,
+        linetype = "dashed",
+        color = "red"
+      ) +
+      ggplot2::geom_hline(
+        yintercept = maxval,
+        linetype = "dashed",
+        color = "black"
+      ) +
+      ggplot2::annotate(
+        "text",
+        label = sprintf("Mid PV: %0.3f", midval),
+        x = 0,
+        hjust = 0.0,
+        y = midval,
+        vjust = -0.25,
+        fontface = "bold",
+        size = 6,
+        color = "red"
+      ) +
+      ggplot2::annotate(
+        "text",
+        label = sprintf("Max PV: %0.3f", maxval),
+        x = 0,
+        hjust = 0.0,
+        y = maxval,
+        vjust = -0.25,
+        size = 6,
+        color = "black",
+        fontface = "bold",
+      ) +
+      ggplot2::scale_x_continuous(
+        limits = c(0, 1),
+        expand = c(0, 0.0)
+      ) +
+      ggplot2::scale_y_continuous(
+        limits = c(0, maxyaxis),
+        expand = ggplot2::expansion(mult = 0)
+      ) +
+      ggplot2::labs(
+        x = description,
+        y = "Prediction Variance"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(margins = ggplot2::unit(c(20, 20, 20, 20), "points")) +
+      ggplot2::theme(text = ggplot2::element_text(size = 24)) +
+      ggplot2::coord_cartesian(clip = F)
+    print(plot_obj)
+    return(invisible(varsorderedscaled))
   }
+  return(varsorderedscaled)
 }
+globalVariables(c("variance"))
